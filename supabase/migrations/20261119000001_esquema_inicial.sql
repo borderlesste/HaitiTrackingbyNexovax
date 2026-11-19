@@ -127,7 +127,7 @@ create index places_location_gix on public.places using gist (location);
 -- ---------------------------------------------------------------------------
 -- Aportes
 -- ---------------------------------------------------------------------------
-create table public.contributions (
+create table public.mission_contributions (
   id uuid primary key default gen_random_uuid(),
   idempotency_key uuid not null unique,
   mission_id uuid not null references public.missions (id),
@@ -149,11 +149,11 @@ create table public.contributions (
   created_at timestamptz not null default now(),
   check (reviewed_by is null or reviewed_by <> user_id)
 );
-create index contributions_user_status_idx on public.contributions (user_id, status, created_at desc);
-create index contributions_location_gix on public.contributions using gist (location);
+create index mission_contributions_user_status_idx on public.mission_contributions (user_id, status, created_at desc);
+create index mission_contributions_location_gix on public.mission_contributions using gist (location);
 
 alter table public.places
-  add constraint places_source_contribution_fk foreign key (source_contribution_id) references public.contributions (id);
+  add constraint places_source_contribution_fk foreign key (source_contribution_id) references public.mission_contributions (id);
 
 -- ---------------------------------------------------------------------------
 -- Libro de recompensas (inmutable: correcciones con nuevos asientos)
@@ -161,7 +161,7 @@ alter table public.places
 create table public.reward_events (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id),
-  contribution_id uuid references public.contributions (id),
+  contribution_id uuid references public.mission_contributions (id),
   mission_id uuid references public.missions (id),
   kind text not null check (kind in ('CONTRIBUTION', 'MISSION_BONUS', 'WELCOME_BONUS', 'ADJUSTMENT')),
   amount_usd numeric(10, 2) not null,
@@ -227,7 +227,7 @@ alter table public.account_roles enable row level security;
 alter table public.missions enable row level security;
 alter table public.mission_assignments enable row level security;
 alter table public.places enable row level security;
-alter table public.contributions enable row level security;
+alter table public.mission_contributions enable row level security;
 alter table public.reward_events enable row level security;
 
 create policy "perfil propio: leer" on public.profiles for select using (id = auth.uid() or public.has_role('admin') or public.has_role('moderator'));
@@ -244,9 +244,9 @@ create policy "asignaciones propias: crear" on public.mission_assignments for in
 create policy "lugares públicos visibles" on public.places for select using (visibility = 'PUBLIC' or public.has_role('admin') or public.has_role('moderator'));
 create policy "moderación gestiona lugares" on public.places for all using (public.has_role('admin') or public.has_role('moderator')) with check (public.has_role('admin') or public.has_role('moderator'));
 
-create policy "aportes propios: leer" on public.contributions for select using (user_id = auth.uid() or public.has_role('admin') or public.has_role('moderator'));
-create policy "aportes propios: crear" on public.contributions for insert with check (user_id = auth.uid() and status = 'SUBMITTED' and reviewed_by is null);
-create policy "moderación revisa aportes" on public.contributions for update using (public.has_role('moderator') or public.has_role('admin')) with check (reviewed_by = auth.uid() and user_id <> auth.uid());
+create policy "aportes propios: leer" on public.mission_contributions for select using (user_id = auth.uid() or public.has_role('admin') or public.has_role('moderator'));
+create policy "aportes propios: crear" on public.mission_contributions for insert with check (user_id = auth.uid() and status = 'SUBMITTED' and reviewed_by is null);
+create policy "moderación revisa aportes" on public.mission_contributions for update using (public.has_role('moderator') or public.has_role('admin')) with check (reviewed_by = auth.uid() and user_id <> auth.uid());
 
 create policy "recompensas propias: leer" on public.reward_events for select using (user_id = auth.uid() or public.has_role('admin'));
 -- Sin políticas de insert/update para usuarios: los asientos se crean solo desde el servidor.
