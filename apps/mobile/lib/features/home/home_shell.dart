@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/profile_context.dart';
 
 import '../contributions/contribution_service.dart';
 import '../contributions/my_contributions_screen.dart';
@@ -92,30 +92,12 @@ class _ProfileScreen extends StatelessWidget {
   const _ProfileScreen();
 
   @override
-  Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
-    final name = (user?.userMetadata?['full_name'] as String?) ?? '';
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person)),
-          title: Text(name.isEmpty ? 'Colaborador' : name),
-          subtitle: Text(user?.email ?? ''),
-        ),
-        const Divider(),
+  Widget build(BuildContext context) => ProfileActions(extra: [
         ListTile(
           leading: const Icon(Icons.assignment_turned_in_outlined),
           title: const Text('Mis aportes'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyContributionsScreen())),
         ),
-        ListTile(
-          leading: const Icon(Icons.logout),
-          title: const Text('Cerrar sesión'),
-          onTap: () => Supabase.instance.client.auth.signOut(),
-        ),
-      ],
-    );
-  }
+      ]);
 }

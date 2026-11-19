@@ -6,7 +6,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/profile_context.dart';
 import 'core/theme.dart';
+import 'features/company/company_shell.dart';
+import 'features/developer/developer_shell.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/new_password_screen.dart';
 import 'features/home/home_shell.dart';
@@ -32,6 +35,7 @@ Future<void> main() async {
   if (supabaseUrl.isNotEmpty) {
     await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
   }
+  await ProfileContext.load();
   runApp(const HaitiTrackingApp());
 }
 
@@ -69,7 +73,14 @@ class _AuthGateState extends State<AuthGate> {
         if (snap.data?.event == AuthChangeEvent.passwordRecovery) _recovering = true;
         if (auth.currentSession == null) return const LoginScreen();
         if (_recovering) return NewPasswordScreen(onDone: () => setState(() => _recovering = false));
-        return const HomeShell();
+        return ValueListenableBuilder<AppProfile>(
+          valueListenable: ProfileContext.current,
+          builder: (context, profile, _) => switch (profile) {
+            AppProfile.company => const CompanyShell(),
+            AppProfile.developer => const DeveloperShell(),
+            AppProfile.collaborator => const HomeShell(),
+          },
+        );
       },
     );
   }

@@ -64,6 +64,8 @@ function Shell({ children, email, roles }: { children: ReactNode; email: string;
   const nav = [
     { href: "/", label: "Cola de revisión" },
     { href: "/misiones", label: "Misiones" },
+    { href: "/empresas", label: "Empresas" },
+    { href: "/campanas", label: "Campañas" },
   ];
   return (
     <div className="layout">
