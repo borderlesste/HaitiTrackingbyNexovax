@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../contributions/contribution_service.dart';
+import '../contributions/my_contributions_screen.dart';
 import '../missions/map_screen.dart';
 import '../missions/mission.dart';
 import '../missions/missions_list_screen.dart';
@@ -24,6 +26,8 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     _load();
+    // Envía en segundo plano los aportes guardados sin conexión.
+    ContributionService().syncPending().ignore();
   }
 
   Future<void> _load() async {
@@ -111,6 +115,12 @@ class _ProfileScreen extends StatelessWidget {
           subtitle: Text(user?.email ?? ''),
         ),
         const Divider(),
+        ListTile(
+          leading: const Icon(Icons.assignment_turned_in_outlined),
+          title: const Text('Mis aportes'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyContributionsScreen())),
+        ),
         ListTile(
           leading: const Icon(Icons.logout),
           title: const Text('Cerrar sesión'),

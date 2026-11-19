@@ -10,6 +10,7 @@ class Mission {
     required this.description,
     required this.commune,
     required this.point,
+    required this.radiusM,
     required this.rewardUsd,
     required this.bonusUsd,
     required this.requiredContributions,
@@ -25,6 +26,7 @@ class Mission {
   final String description;
   final String? commune;
   final LatLng point;
+  final int? radiusM;
   // Los montos llegan de numeric como texto o número; se muestran tal cual, sin cálculos en float.
   final String rewardUsd;
   final String bonusUsd;
@@ -44,6 +46,7 @@ class Mission {
         description: (r['description'] ?? '') as String,
         commune: r['commune'] as String?,
         point: LatLng((r['lat'] as num).toDouble(), (r['lng'] as num).toDouble()),
+        radiusM: (r['radius_m'] as num?)?.toInt(),
         rewardUsd: _money(r['individual_reward_usd']),
         bonusUsd: _money(r['completion_bonus_usd']),
         requiredContributions: (r['required_approved_contributions'] as num).toInt(),

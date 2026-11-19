@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme.dart';
+import '../contributions/new_contribution_screen.dart';
 import 'mission.dart';
 
 class MissionDetailScreen extends StatelessWidget {
@@ -53,10 +54,8 @@ class MissionDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           FilledButton.icon(
-            // El flujo de aporte (GPS + foto + datos) llega en la fase 3.
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('El registro de aportes estará disponible muy pronto.')),
-            ),
+            onPressed: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => NewContributionScreen(mission: m))),
             icon: const Icon(Icons.add_location_alt_outlined),
             label: const Text('Comenzar misión'),
           ),

@@ -260,22 +260,6 @@ create policy "evidencias propias: subir" on storage.objects for insert
   with check (bucket_id = 'evidence' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy "evidencias propias o moderación: leer" on storage.objects for select
   using (bucket_id = 'evidence' and ((storage.foldername(name))[1] = auth.uid()::text or public.has_role('moderator') or public.has_role('admin')));
--- Datos de demostración (inventados). Solo para entornos de desarrollo.
-insert into public.missions (code, type, title, description, commune, center, radius_m, required_approved_contributions,
-  individual_reward_usd, completion_bonus_usd, max_participants, budget_authorized_usd, requirements, start_at, end_at, status)
-values
-  ('MIS-DEL-0001', 'BATCH_ZONE', 'Documentar cinco comercios públicos', 'Registra cinco comercios abiertos al público que no estén en el mapa.', 'Delmas',
-   extensions.st_setsrid(extensions.st_makepoint(-72.2973, 18.5401), 4326)::extensions.geography, 800, 5, 0.25, 1.00, 30, 75.00,
-   'GPS + foto + datos del lugar', now(), now() + interval '30 days', 'ACTIVE'),
-  ('MIS-DEL-0002', 'NEW_PLACE', 'Registrar comercio faltante', 'Un comercio público que aún no aparece en el catálogo.', 'Delmas',
-   extensions.st_setsrid(extensions.st_makepoint(-72.3050, 18.5470), 4326)::extensions.geography, 500, 1, 0.25, 0, 100, 25.00,
-   'GPS + foto + datos del lugar', now(), now() + interval '30 days', 'ACTIVE'),
-  ('MIS-PAP-0001', 'PRIORITY_PLACE', 'Zona prioritaria: centro de Port-au-Prince', 'Lugares públicos dentro de la zona prioritaria.', 'Port-au-Prince',
-   extensions.st_setsrid(extensions.st_makepoint(-72.3388, 18.5425), 4326)::extensions.geography, 600, 1, 0.50, 0, 50, 25.00,
-   'GPS + foto + datos del lugar', now(), now() + interval '30 days', 'ACTIVE'),
-  ('MIS-PTV-0001', 'NEW_PLACE', 'Farmacias de Pétion-Ville', 'Registra farmacias abiertas al público.', 'Pétion-Ville',
-   extensions.st_setsrid(extensions.st_makepoint(-72.2852, 18.5125), 4326)::extensions.geography, 700, 1, 0.25, 0, 50, 12.50,
-   'GPS + foto + datos del lugar', now(), now() + interval '30 days', 'ACTIVE');
 -- Permisos para la app móvil (solo objetos de Haiti Tracking; las tablas del backend anterior no se exponen).
 -- Nota: la tabla "contributions" ya existía (backend anterior), por eso la nuestra se llama mission_contributions.
 grant usage on schema public to anon, authenticated;
@@ -293,3 +277,65 @@ grant execute on function public.check_duplicates(double precision, double preci
 grant execute on function public.has_role(public.app_role) to anon, authenticated;
 grant usage on sequence public.place_code_seq to authenticated;
 notify pgrst, 'reload schema';
+-- Fase 3: aportes. La app necesita el radio de la misión y duplicados que incluyan aportes en revisión.
+
+drop function if exists public.missions_nearby(double precision, double precision, double precision);
+create function public.missions_nearby(lat double precision, lng double precision, radius_km double precision default 25)
+returns table (
+  id uuid, code text, type public.mission_type, title text, description text, commune text,
+  lat double precision, lng double precision, radius_m integer, individual_reward_usd numeric, completion_bonus_usd numeric,
+  required_approved_contributions integer, requirements text, end_at timestamptz, distance_m double precision
+)
+language sql stable set search_path = '' as $$
+  select m.id, m.code, m.type, m.title, m.description, m.commune,
+         extensions.st_y(m.center::extensions.geometry), extensions.st_x(m.center::extensions.geometry), m.radius_m,
+         m.individual_reward_usd, m.completion_bonus_usd, m.required_approved_contributions, m.requirements, m.end_at,
+         extensions.st_distance(m.center, extensions.st_setsrid(extensions.st_makepoint(lng, lat), 4326)::extensions.geography)
+  from public.missions m
+  where m.status = 'ACTIVE'
+    and (m.end_at is null or m.end_at > now())
+    and extensions.st_dwithin(m.center, extensions.st_setsrid(extensions.st_makepoint(lng, lat), 4326)::extensions.geography, radius_km * 1000)
+  order by 15;
+$$;
+grant execute on function public.missions_nearby(double precision, double precision, double precision) to anon, authenticated;
+
+-- Posibles duplicados: lugares aprobados + aportes pendientes de revisión (solo nombre y distancia, sin datos personales).
+drop function if exists public.check_duplicates(double precision, double precision, text, double precision);
+create function public.check_duplicates(lat double precision, lng double precision, place_name text, radius_m double precision default 60)
+returns table (source text, code text, name text, category text, distance_m double precision, name_similarity real)
+language sql stable security definer set search_path = '' as $$
+  with pt as (select extensions.st_setsrid(extensions.st_makepoint(lng, lat), 4326)::extensions.geography as g)
+  select * from (
+    select 'place'::text, p.code, p.name, p.category,
+           extensions.st_distance(p.location, pt.g), extensions.similarity(lower(p.name), lower(place_name))
+    from public.places p, pt
+    where p.visibility = 'PUBLIC' and extensions.st_dwithin(p.location, pt.g, radius_m)
+    union all
+    select 'pending'::text, null, c.name, c.category,
+           extensions.st_distance(c.location, pt.g), extensions.similarity(lower(c.name), lower(place_name))
+    from public.mission_contributions c, pt
+    where c.status in ('SUBMITTED', 'AUTO_CHECKED', 'HUMAN_REVIEW')
+      and extensions.st_dwithin(c.location, pt.g, radius_m)
+  ) d (source, code, name, category, distance_m, name_similarity)
+  order by name_similarity desc, distance_m
+  limit 10;
+$$;
+grant execute on function public.check_duplicates(double precision, double precision, text, double precision) to authenticated;
+
+notify pgrst, 'reload schema';
+-- Datos de demostración (inventados). Solo para entornos de desarrollo.
+insert into public.missions (code, type, title, description, commune, center, radius_m, required_approved_contributions,
+  individual_reward_usd, completion_bonus_usd, max_participants, budget_authorized_usd, requirements, start_at, end_at, status)
+values
+  ('MIS-DEL-0001', 'BATCH_ZONE', 'Documentar cinco comercios públicos', 'Registra cinco comercios abiertos al público que no estén en el mapa.', 'Delmas',
+   extensions.st_setsrid(extensions.st_makepoint(-72.2973, 18.5401), 4326)::extensions.geography, 800, 5, 0.25, 1.00, 30, 75.00,
+   'GPS + foto + datos del lugar', now(), now() + interval '30 days', 'ACTIVE'),
+  ('MIS-DEL-0002', 'NEW_PLACE', 'Registrar comercio faltante', 'Un comercio público que aún no aparece en el catálogo.', 'Delmas',
+   extensions.st_setsrid(extensions.st_makepoint(-72.3050, 18.5470), 4326)::extensions.geography, 500, 1, 0.25, 0, 100, 25.00,
+   'GPS + foto + datos del lugar', now(), now() + interval '30 days', 'ACTIVE'),
+  ('MIS-PAP-0001', 'PRIORITY_PLACE', 'Zona prioritaria: centro de Port-au-Prince', 'Lugares públicos dentro de la zona prioritaria.', 'Port-au-Prince',
+   extensions.st_setsrid(extensions.st_makepoint(-72.3388, 18.5425), 4326)::extensions.geography, 600, 1, 0.50, 0, 50, 25.00,
+   'GPS + foto + datos del lugar', now(), now() + interval '30 days', 'ACTIVE'),
+  ('MIS-PTV-0001', 'NEW_PLACE', 'Farmacias de Pétion-Ville', 'Registra farmacias abiertas al público.', 'Pétion-Ville',
+   extensions.st_setsrid(extensions.st_makepoint(-72.2852, 18.5125), 4326)::extensions.geography, 700, 1, 0.25, 0, 50, 12.50,
+   'GPS + foto + datos del lugar', now(), now() + interval '30 days', 'ACTIVE');
