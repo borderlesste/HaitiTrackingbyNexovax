@@ -1,0 +1,125 @@
+Para tener una visión clara de hacia dónde vamos, vamos a organizar **todas las pantallas de Haiti Tracking by Nexovax**, separando las que ya hemos diseñado visualmente de las que faltan.
+
+El proyecto tendrá **tres experiencias dentro de una misma aplicación Android**: Colaborador, Empresa y Desarrollador. Además, contará con un panel web privado para los administradores de NexovaX.
+
+## **Estado actual del diseño**
+
+**Pantallas que ya hemos visualizado**
+
+Tenemos propuestas gráficas para el inicio de sesión y registro, la pantalla principal de misiones, detalle de misión, registro de establecimientos, confirmación de aportes, progreso, historial, recompensas, retiros MonCash y perfil del colaborador.
+
+Son maquetas visuales. Algunas necesitan ajustes de coherencia y todavía no están programadas.
+
+## **1. Pantallas pendientes — Colaborador**
+
+Estas completarán la experiencia de las personas que realizan misiones y ganan recompensas.
+
+| N.º | Pantalla                       | Funcionalidad                                |
+| --- | ------------------------------ | -------------------------------------------- |
+| 1   | Verificación de cuenta         | Confirmación por SMS o correo                |
+| 2   | Completar perfil               | Departamento, comuna, edad y preferencias    |
+| 3   | Recuperar contraseña           | Restablecimiento seguro del acceso           |
+| 4   | Explorar misiones              | Listado, filtros y búsqueda avanzada         |
+| 5   | Misiones activas               | Consultar trabajos comenzados                |
+| 6   | Comprobación de duplicados     | Verificar si el establecimiento ya existe    |
+| 7   | Confirmar punto GPS            | Revisar la ubicación exacta en el mapa       |
+| 8   | Detalle de un aporte           | Consultar evidencias, estado y observaciones |
+| 9   | Corrección de aporte rechazado | Modificar y reenviar datos                   |
+| 10  | Misión completada              | Confirmación de todos los objetivos          |
+| 11  | Notificaciones                 | Aprobaciones, nuevas misiones y pagos        |
+| 12  | Configuración de MonCash       | Vincular y verificar el método de retiro     |
+| 13  | Privacidad y seguridad         | Contraseña, sesiones y eliminación de cuenta |
+| 14  | Ayuda y soporte                | Consultas, incidencias y reclamaciones       |
+
+**Prioridad:** terminar primero las pantallas de GPS, detección de duplicados y corrección de aportes. Son esenciales para garantizar la calidad de las ubicaciones.
+
+## **2. Pantallas pendientes — Empresa**
+
+Una empresa tendrá su propio panel dentro de la aplicación, diferente del colaborador.
+
+| N.º | Pantalla                  | Funcionalidad                                       |
+| --- | ------------------------- | --------------------------------------------------- |
+| 15  | Registro empresarial      | Datos de empresa y representante                    |
+| 16  | Verificación empresarial  | Documentación y aprobación                          |
+| 17  | Inicio de empresa         | Resumen de establecimientos y servicios             |
+| 18  | Mis establecimientos      | Lista de negocios registrados                       |
+| 19  | Registrar establecimiento | Nombre, dirección, categoría, GPS y fotografías     |
+| 20  | Editar establecimiento    | Actualizar información comercial                    |
+| 21  | Solicitar misión          | Encargar recopilación o verificación de ubicaciones |
+| 22  | Seguimiento de misiones   | Consultar progreso y resultados                     |
+| 23  | Planes y facturación      | Suscripciones, pagos y facturas                     |
+| 24  | Perfil y configuración    | Datos comerciales, usuarios autorizados y soporte   |
+
+La empresa podrá solicitar misiones, pero **su publicación y financiación deberán pasar por las reglas del sistema y los controles administrativos**.
+
+## **3. Pantallas pendientes — Desarrollador**
+
+El desarrollador podrá gestionar sus integraciones desde la misma aplicación móvil.
+
+| N.º | Pantalla                  | Funcionalidad                             |
+| --- | ------------------------- | ----------------------------------------- |
+| 25  | Registro de desarrollador | Identidad y aceptación de condiciones API |
+| 26  | Dashboard API             | Resumen de proyectos y consultas          |
+| 27  | Mis proyectos             | Crear y administrar integraciones         |
+| 28  | Credenciales API          | Generar, rotar y revocar claves           |
+| 29  | Documentación API         | Consultar endpoints y ejemplos            |
+| 30  | Probar API                | Consultas de prueba con respuestas JSON   |
+| 31  | Estadísticas              | Uso, errores y consumo                    |
+| 32  | Planes y facturación      | Cuotas, suscripciones y pagos             |
+| 33  | Configuración             | Seguridad y notificaciones                |
+
+Las claves secretas deberán gestionarse con controles apropiados y nunca permanecer expuestas dentro de la aplicación.
+
+## **4. Pantallas pendientes — Panel administrativo web**
+
+Esta será la única interfaz web de gestión del proyecto.
+
+| N.º | Módulo                     | Función principal                           |
+| --- | -------------------------- | ------------------------------------------- |
+| 34  | Acceso administrativo      | Autenticación reforzada                     |
+| 35  | Dashboard general          | Estadísticas y actividad                    |
+| 36  | Crear misión               | Objetivo, zona GPS, requisitos y recompensa |
+| 37  | Gestión de misiones        | Activar, pausar, editar y cerrar            |
+| 38  | Mapa operativo             | Misiones, cobertura y ubicaciones           |
+| 39  | Revisar aportes            | Aprobar, rechazar o solicitar correcciones  |
+| 40  | Duplicados y fraude        | Investigar registros sospechosos            |
+| 41  | Gestión de colaboradores   | Usuarios, reputación y restricciones        |
+| 42  | Gestión de empresas        | Verificación y establecimientos             |
+| 43  | Gestión de desarrolladores | Proyectos y consumo API                     |
+| 44  | Tarifas y recompensas      | Configurar pagos y bonificaciones           |
+| 45  | Presupuestos de misiones   | Reservas y control de gastos                |
+| 46  | Retiros MonCash            | Solicitudes, autorizaciones y conciliación  |
+| 47  | Facturación                | Ventas, planes y suscripciones              |
+| 48  | Soporte y reclamaciones    | Casos de usuarios                           |
+| 49  | Configuración general      | Contactos, idiomas, permisos y políticas    |
+| 50  | Auditoría                  | Historial de operaciones administrativas    |
+
+El panel será el centro de control para crear las misiones que aparecerán en los mapas de los colaboradores y para determinar qué aportes merecen una recompensa.
+
+## **5. Orden recomendado para continuar con los diseños**
+
+## **01**
+
+**Completar la experiencia del colaborador**
+
+Registro, GPS, duplicados, correcciones, misión completada, notificaciones y seguridad.
+
+## **02**
+
+**Diseñar la cuenta Empresa**
+
+Dashboard empresarial, establecimientos, solicitud de misiones y pagos.
+
+## **03**
+
+**Diseñar la cuenta Desarrollador**
+
+Dashboard API, proyectos, credenciales, documentación y consumo.
+
+## **04**
+
+Creación de misiones, moderación, recompensas, finanzas, usuarios y configuración.
+
+**«Confirmar ubicación GPS»**, porque es el paso más importante antes de permitir que un colaborador registre un establecimiento.
+
+En esa pantalla veremos el mapa, la posición GPS detectada, su precisión, la ubicación del establecimiento y una comprobación inicial de coincidencias.

@@ -1,0 +1,32 @@
+# Flutter / Dart
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+local.properties
+**/android/.gradle/
+**/android/app/debug/
+**/android/app/release/
+*.jks
+*.keystore
+key.properties
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Secretos
+.env
+.env.*
+!.env.example
+apps/mobile/env.json
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+
+.DS_Store
+Thumbs.db
