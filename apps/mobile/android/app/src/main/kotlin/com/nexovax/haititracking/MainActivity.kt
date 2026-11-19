@@ -1,4 +1,4 @@
-package com.nexovax.haiti_tracking
+package com.nexovax.haititracking
 
 import io.flutter.embedding.android.FlutterActivity
 
