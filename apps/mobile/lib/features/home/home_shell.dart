@@ -6,6 +6,7 @@ import '../contributions/my_contributions_screen.dart';
 import '../missions/map_screen.dart';
 import '../missions/mission.dart';
 import '../missions/missions_list_screen.dart';
+import '../rewards/rewards_screen.dart';
 
 /// Barra inferior del colaborador: Mapa / Misiones / Recompensas / Perfil.
 class HomeShell extends StatefulWidget {
@@ -63,7 +64,7 @@ class _HomeShellState extends State<HomeShell> {
       body = switch (_tab) {
         0 => MapScreen(missions: _missions, onRefresh: _load),
         1 => MissionsListScreen(missions: _missions, onRefresh: _load),
-        2 => const _RewardsPlaceholder(),
+        2 => const RewardsScreen(),
         _ => const _ProfileScreen(),
       };
     }
@@ -85,18 +86,6 @@ class _HomeShellState extends State<HomeShell> {
       ),
     );
   }
-}
-
-class _RewardsPlaceholder extends StatelessWidget {
-  const _RewardsPlaceholder();
-
-  @override
-  Widget build(BuildContext context) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('Aquí verás tus ganancias: pendientes, aprobadas y disponibles.\n(Fase 5)', textAlign: TextAlign.center),
-        ),
-      );
 }
 
 class _ProfileScreen extends StatelessWidget {

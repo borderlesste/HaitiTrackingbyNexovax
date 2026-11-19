@@ -3,6 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/brand_header.dart';
 
+/// Enlace que abre la app desde los correos de confirmación y de recuperación.
+const authRedirectUrl = 'com.nexovax.haititracking://login-callback';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -40,6 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
           email: _email.text.trim(),
           password: _password.text,
           data: {'full_name': _name.text.trim()},
+          emailRedirectTo: authRedirectUrl,
         );
         if (res.session == null && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -64,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = 'Escribe tu correo para recuperar la contraseña.');
       return;
     }
-    await Supabase.instance.client.auth.resetPasswordForEmail(email);
+    await Supabase.instance.client.auth.resetPasswordForEmail(email, redirectTo: authRedirectUrl);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Te enviamos un enlace para restablecer la contraseña.'),

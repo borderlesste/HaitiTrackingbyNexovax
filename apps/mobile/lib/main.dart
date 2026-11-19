@@ -1,8 +1,14 @@
+import 'dart:ui';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/theme.dart';
 import 'features/auth/login_screen.dart';
+import 'features/auth/new_password_screen.dart';
 import 'features/home/home_shell.dart';
 
 // Se pasan al compilar: flutter run --dart-define-from-file=env.json
@@ -11,6 +17,18 @@ const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Crashlytics: reporta cierres inesperados (configuración en android/app/google-services.json).
+  try {
+    await Firebase.initializeApp();
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  } catch (_) {
+    // Sin google-services.json la app funciona igual, solo sin reportes de errores.
+  }
   if (supabaseUrl.isNotEmpty) {
     await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
   }
@@ -31,17 +49,27 @@ class HaitiTrackingApp extends StatelessWidget {
   }
 }
 
-/// Muestra login o la app según haya sesión.
-class AuthGate extends StatelessWidget {
+/// Muestra login o la app según haya sesión. Si se abre el enlace de recuperación, pide la nueva contraseña.
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _recovering = false;
 
   @override
   Widget build(BuildContext context) {
     final auth = Supabase.instance.client.auth;
     return StreamBuilder<AuthState>(
       stream: auth.onAuthStateChange,
-      builder: (context, _) {
-        return auth.currentSession == null ? const LoginScreen() : const HomeShell();
+      builder: (context, snap) {
+        if (snap.data?.event == AuthChangeEvent.passwordRecovery) _recovering = true;
+        if (auth.currentSession == null) return const LoginScreen();
+        if (_recovering) return NewPasswordScreen(onDone: () => setState(() => _recovering = false));
+        return const HomeShell();
       },
     );
   }
