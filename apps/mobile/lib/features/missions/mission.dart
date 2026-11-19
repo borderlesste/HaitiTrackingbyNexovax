@@ -17,6 +17,7 @@ class Mission {
     required this.requirements,
     required this.endAt,
     required this.distanceM,
+    this.requiresOnSite = true,
   });
 
   final String id;
@@ -34,6 +35,8 @@ class Mission {
   final String requirements;
   final DateTime? endAt;
   final double distanceM;
+  /// Si es false (misiones remotas o de prueba), la app no exige estar dentro del área.
+  final bool requiresOnSite;
 
   bool get isPriority => type == 'PRIORITY_PLACE';
   bool get hasBonus => bonusUsd != '0' && bonusUsd != '0.00';
@@ -53,6 +56,7 @@ class Mission {
         requirements: (r['requirements'] ?? '') as String,
         endAt: r['end_at'] == null ? null : DateTime.parse(r['end_at'] as String),
         distanceM: (r['distance_m'] as num).toDouble(),
+        requiresOnSite: (r['requires_on_site_evidence'] ?? true) as bool,
       );
 
   static String _money(Object? v) {

@@ -59,6 +59,7 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
       : const Distance().as(LengthUnit.Meter, widget.mission.point, LatLng(_position!.latitude, _position!.longitude));
 
   bool get _insideArea {
+    if (!widget.mission.requiresOnSite) return true;
     final d = _distanceToMission;
     final r = widget.mission.radiusM;
     if (d == null) return false;
@@ -66,7 +67,8 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
     return d <= r + (_position?.accuracy ?? 0);
   }
 
-  bool get _accuracyOk => _position != null && _position!.accuracy <= maxAccuracyM;
+  bool get _accuracyOk =>
+      _position != null && (!widget.mission.requiresOnSite || _position!.accuracy <= maxAccuracyM);
 
   Future<void> _locate() async {
     setState(() {
@@ -277,6 +279,8 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
       status = _gpsError!;
     } else if (p == null) {
       status = 'Ubicación no capturada';
+    } else if (!widget.mission.requiresOnSite) {
+      status = 'Misión sin presencia física: se registra tu ubicación actual';
     } else if (!_insideArea) {
       status = 'Fuera del área de la misión (a ${_distanceToMission!.round()} m del centro)';
     } else if (!_accuracyOk) {
