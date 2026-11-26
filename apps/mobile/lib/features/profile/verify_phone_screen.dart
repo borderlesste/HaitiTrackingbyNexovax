@@ -33,7 +33,8 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
   void initState() {
     super.initState();
     final p = Supabase.instance.client.auth.currentUser?.phone ?? '';
-    if (p.isNotEmpty) _phone.text = formatHaitiPhone(p.startsWith('+') ? p : '+$p').replaceFirst('+509 ', '');
+    final d = p.replaceAll(RegExp(r'\D'), '');
+    if (d.length == 11 && d.startsWith('509')) _phone.text = d.substring(3);
   }
 
   String? get _accountPhone {
@@ -123,12 +124,12 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
             controller: _phone,
             enabled: _sentTo == null,
             keyboardType: TextInputType.phone,
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9 +]'))],
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
             decoration: const InputDecoration(
               labelText: 'Número MonCash',
               prefixIcon: Icon(Icons.phone_outlined),
               prefixText: '+509 ',
-              hintText: '37 12 34 56',
+              hintText: '37123456',
             ),
           ),
           if (_sentTo == null && _accountPhone != null) ...[

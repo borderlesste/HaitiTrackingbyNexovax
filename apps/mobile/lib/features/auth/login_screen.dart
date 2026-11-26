@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/account.dart';
+import '../../core/profile_context.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import 'register_screen.dart';
@@ -57,6 +58,8 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     final auth = Supabase.instance.client.auth;
     try {
+      // Al entrar se abre siempre la app del colaborador (Empresa/Desarrollador se eligen luego en el menú).
+      await ProfileContext.set(AppProfile.collaborator);
       if (_isEmail) {
         await auth.signInWithPassword(email: _id.text.trim(), password: _password.text);
       } else {
