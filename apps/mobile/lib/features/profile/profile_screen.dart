@@ -6,8 +6,11 @@ import '../../core/profile_context.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../contributions/contribution_service.dart';
+import '../notifications/notifications_screen.dart';
 import 'edit_profile_screen.dart';
-import 'verify_phone_screen.dart';
+import 'help_support_screen.dart';
+import 'moncash_settings_screen.dart';
+import 'privacy_security_screen.dart';
 
 class _Stats {
   const _Stats({this.total = 0, this.approved = 0, this.trustPct, this.missionsDone = 0});
@@ -101,26 +104,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _load();
   }
 
-  void _infoSheet(String title, IconData icon, List<Widget> children) {
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Icon(icon, color: HtColors.navy),
-              const SizedBox(width: 10),
-              Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-            ]),
-            const SizedBox(height: 12),
-            ...children,
-          ]),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
@@ -201,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 badge: phoneOk
                     ? const StatusChip('Verificado', tone: ChipTone.ok)
                     : const StatusChip('Verificar', tone: ChipTone.review),
-                onTap: () => _open(const VerifyPhoneScreen()),
+                onTap: () => _open(const MoncashSettingsScreen()),
               ),
               _SettingTile(
                 leading: const Icon(Icons.language, color: HtColors.blue),
@@ -212,47 +195,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _SettingTile(
                 leading: const Icon(Icons.notifications_none, color: HtColors.navy),
                 title: 'Notificaciones',
-                onTap: () => _infoSheet('Notificaciones', Icons.notifications_none, const [
-                  Text('Te avisaremos cuando se revise un aporte, se complete una misión o cambie el estado de un retiro.',
-                      style: TextStyle(height: 1.4)),
-                ]),
+                onTap: () => _open(const NotificationsScreen()),
               ),
               _SettingTile(
                 leading: const Icon(Icons.shield_outlined, color: HtColors.navy),
                 title: 'Privacidad y seguridad',
-                onTap: () => _infoSheet('Privacidad y seguridad', Icons.shield_outlined, [
-                  const Text(
-                    'Usamos tu teléfono y tu ubicación solo para validar aportes y pagarte recompensas. '
-                    'Nunca compartas tu contraseña ni el código SMS con nadie.',
-                    style: TextStyle(height: 1.4),
-                  ),
-                  if (user?.email?.isNotEmpty == true) ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        await Supabase.instance.client.auth.resetPasswordForEmail(user!.email!,
-                            redirectTo: 'com.nexovax.haititracking://login-callback');
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Te enviamos un enlace para cambiar la contraseña.')));
-                        }
-                      },
-                      icon: const Icon(Icons.lock_reset),
-                      label: const Text('Cambiar contraseña'),
-                    ),
-                  ],
-                ]),
+                subtitle: 'Contraseña, sesiones y eliminar cuenta',
+                onTap: () => _open(const PrivacySecurityScreen()),
               ),
               _SettingTile(
                 leading: const Icon(Icons.help_outline, color: HtColors.navy),
                 title: 'Ayuda y soporte',
-                onTap: () => _infoSheet('Ayuda y soporte', Icons.help_outline, const [
-                  Text('• Las recompensas se acreditan solo cuando un moderador aprueba tu aporte.\n'
-                      '• Si un aporte fue rechazado, verás el motivo en "Mis aportes".\n'
-                      '• Sin conexión, tus aportes se guardan en el teléfono y se envían después.',
-                      style: TextStyle(height: 1.5)),
-                ]),
+                onTap: () => _open(const HelpSupportScreen()),
               ),
               _SettingTile(
                 leading: const Icon(Icons.swap_horiz, color: HtColors.navy),

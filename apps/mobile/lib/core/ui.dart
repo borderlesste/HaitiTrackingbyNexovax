@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/notifications/notifications_screen.dart';
 import 'theme.dart';
 
 /// Marca de la cabecera: pin rojo + "Haiti Tracking / by Nexovax".
@@ -76,10 +77,17 @@ class HtAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: const HtBrand(),
       actions: [
         if (showBell)
-          IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.white, size: 28),
-            tooltip: 'Notificaciones',
-            onPressed: onBell ?? () => showNotificationsSheet(context),
+          ValueListenableBuilder<int>(
+            valueListenable: Notices.unread,
+            builder: (context, n, _) => IconButton(
+              icon: Badge(
+                isLabelVisible: n > 0,
+                label: Text(n > 9 ? '9+' : '$n'),
+                child: const Icon(Icons.notifications, color: Colors.white, size: 28),
+              ),
+              tooltip: 'Notificaciones',
+              onPressed: onBell ?? () => showNotificationsSheet(context),
+            ),
           )
         else
           const SizedBox(width: 60),
@@ -89,21 +97,7 @@ class HtAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 void showNotificationsSheet(BuildContext context) {
-  showModalBottomSheet<void>(
-    context: context,
-    builder: (_) => const SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(24, 24, 24, 32),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.notifications_none, size: 48, color: HtColors.blue),
-          SizedBox(height: 12),
-          Text('No tienes notificaciones nuevas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          SizedBox(height: 6),
-          Text('Te avisaremos cuando se revise un aporte o cambie el estado de un retiro.', textAlign: TextAlign.center),
-        ]),
-      ),
-    ),
-  );
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
 }
 
 /// Cuerpo con esquinas superiores redondeadas sobre la cabecera azul (como en las maquetas).

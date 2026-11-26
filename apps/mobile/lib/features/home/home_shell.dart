@@ -10,6 +10,7 @@ import '../contributions/my_contributions_screen.dart';
 import '../missions/map_screen.dart';
 import '../missions/mission.dart';
 import '../missions/missions_list_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import '../rewards/rewards_screen.dart';
 import '../rewards/withdrawals_screen.dart';
@@ -43,6 +44,7 @@ class _HomeShellState extends State<HomeShell> {
     _load();
     // Envía en segundo plano los aportes guardados sin conexión.
     ContributionService().syncPending().ignore();
+    if (!Guest.isGuest) Notices.refreshBadge().ignore();
   }
 
   @override
