@@ -21,6 +21,14 @@ const levels = [[1, 1], [3, 2]];
 const outDir = join(dirname(fileURLToPath(import.meta.url)), "..", "limites");
 const MAX_SQL_BYTES = 900_000;
 
+// geoBoundaries mezcla francés e inglés en los departamentos: se usan los nombres oficiales cortos.
+const DEPARTMENTS = {
+  "Département de l'Ouest": "Ouest", "Département de la Grande-Anse": "Grand'Anse", "Département des Nippes": "Nippes",
+  "Département du Sud-Est": "Sud-Est", "Nord-Ouest Department": "Nord-Ouest", "Département du Nord": "Nord",
+  "Nord-Est Department": "Nord-Est", "Centre Department": "Centre", "Artibonite Department": "Artibonite",
+  "Sud Department": "Sud",
+};
+
 const round = (c) => (typeof c[0] === "number" ? c.map((v) => Math.round(v * 1e5) / 1e5) : c.map(round));
 
 async function getJson(url) {
@@ -35,7 +43,7 @@ async function loadLevel([adm, level]) {
   const geo = await getJson(url);
   const features = geo.features.map((f) => ({
     type: "Feature",
-    properties: { shapeID: f.properties.shapeID, shapeName: f.properties.shapeName, shapeISO: f.properties.shapeISO ?? "" },
+    properties: { shapeID: f.properties.shapeID, shapeName: (level === 1 && DEPARTMENTS[f.properties.shapeName]) || f.properties.shapeName, shapeISO: f.properties.shapeISO ?? "" },
     geometry: { type: f.geometry.type, coordinates: round(f.geometry.coordinates) },
   }));
   const source = `geoBoundaries gbOpen HTI ADM${adm} (${meta.boundarySource ?? "fuente sin indicar"}, ${meta.boundaryYearRepresented ?? meta.sourceDataUpdateDate ?? ""})`;
