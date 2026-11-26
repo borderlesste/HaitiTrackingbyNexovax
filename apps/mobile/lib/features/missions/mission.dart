@@ -1,6 +1,8 @@
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/money.dart';
+
 class Mission {
   Mission({
     required this.id,
@@ -40,6 +42,12 @@ class Mission {
 
   bool get isPriority => type == 'PRIORITY_PLACE';
   bool get hasBonus => bonusUsd != '0' && bonusUsd != '0.00';
+
+  int get rewardCents => cents(rewardUsd);
+  int get bonusCents => cents(bonusUsd);
+
+  /// Todo lo que se puede ganar: cada aporte aprobado + bono por completar.
+  int get totalCents => rewardCents * requiredContributions + bonusCents;
 
   factory Mission.fromRow(Map<String, dynamic> r) => Mission(
         id: r['id'] as String,
@@ -82,3 +90,6 @@ class MissionsRepository {
     return rows.map((r) => Mission.fromRow(r as Map<String, dynamic>)).toList();
   }
 }
+
+/// Total posible de la misión sin el símbolo: "2.25".
+String missionTotal(Mission m) => money(m.totalCents).substring(1);

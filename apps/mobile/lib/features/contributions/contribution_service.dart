@@ -107,9 +107,55 @@ class ContributionService {
   Future<List<Map<String, dynamic>>> myContributions() async {
     final rows = await _db
         .from('mission_contributions')
-        .select('id, name, category, status, review_reason, created_at, missions(title)')
+        .select('id, name, category, status, review_reason, created_at, photo_paths, mission_id, address_reference, '
+            'missions(title, commune, individual_reward_usd, completion_bonus_usd, required_approved_contributions)')
         .order('created_at', ascending: false)
-        .limit(100);
+        .limit(200);
+    return List<Map<String, dynamic>>.from(rows);
+  }
+
+  /// URLs temporales de las fotos (el bucket de evidencias es privado).
+  Future<Map<String, String>> photoUrls(Iterable<String> paths) async {
+    final list = paths.toSet().toList();
+    if (list.isEmpty) return const {};
+    try {
+      final signed = await _db.storage.from('evidence').createSignedUrls(list, 3600);
+      return {for (final s in signed) s.path: s.signedUrl};
+    } catch (_) {
+      return const {};
+    }
+  }
+}
+
+/// Estado del aporte → (texto, tono) para las etiquetas.
+const contributionStatusLabels = {
+  'SUBMITTED': 'En revisión',
+  'AUTO_CHECKED': 'En revisión',
+  'HUMAN_REVIEW': 'En revisión',
+  'APPROVED': 'Aprobado',
+  'REJECTED': 'Rechazado',
+  'NEEDS_CHANGES': 'Requiere cambios',
+  'APPEALED': 'Apelado',
+};
+
+bool isInReview(String? s) => s == 'SUBMITTED' || s == 'AUTO_CHECKED' || s == 'HUMAN_REVIEW' || s == 'APPEALED';
+
+/// Primera foto del aporte, si tiene.
+String? firstPhoto(Map<String, dynamic> c) {
+  final p = c['photo_paths'];
+  if (p is List && p.isNotEmpty) return p.first as String;
+  return null;
+}
+
+extension MissionContributions on ContributionService {
+  /// Aportes del usuario en una misión (para "Aporte 2 de 5" y el progreso).
+  Future<List<Map<String, dynamic>>> missionContributions(String missionId) async {
+    final rows = await Supabase.instance.client
+        .from('mission_contributions')
+        .select('id, name, category, status, created_at, photo_paths')
+        .eq('mission_id', missionId)
+        .eq('user_id', Supabase.instance.client.auth.currentUser!.id)
+        .order('created_at');
     return List<Map<String, dynamic>>.from(rows);
   }
 }

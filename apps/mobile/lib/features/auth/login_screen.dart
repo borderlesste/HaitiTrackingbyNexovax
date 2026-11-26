@@ -3,16 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/brand_header.dart';
+import '../../core/account.dart';
+import '../../core/theme.dart';
+import '../../core/ui.dart';
+import 'register_screen.dart';
 
 /// Enlace que abre la app desde los correos de confirmación y de recuperación.
 const authRedirectUrl = 'com.nexovax.haititracking://login-callback';
 
+/// Inicio de sesión con teléfono (cuentas nuevas) o correo (cuentas anteriores) y contraseña.
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.startRegistering = false});
-
-  /// Abre directamente el formulario de registro (botón «Comenzar» de la bienvenida).
-  final bool startRegistering;
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -20,18 +21,17 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _email = TextEditingController();
+  final _id = TextEditingController();
   final _password = TextEditingController();
-  late bool _registering = widget.startRegistering;
   bool _busy = false;
+  bool _obscure = true;
   String? _error;
   StreamSubscription<AuthState>? _authSub;
 
   @override
   void initState() {
     super.initState();
-    // Si se abrió desde la bienvenida, al iniciar sesión se vuelve a la raíz, donde AuthGate ya muestra la app.
+    // Al iniciar sesión se vuelve a la raíz, donde AuthGate ya muestra la app.
     _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((state) {
       if (state.session != null && mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).popUntil((route) => route.isFirst);
@@ -42,11 +42,12 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _authSub?.cancel();
-    _name.dispose();
-    _email.dispose();
+    _id.dispose();
     _password.dispose();
     super.dispose();
   }
+
+  bool get _isEmail => _id.text.contains('@');
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -56,23 +57,13 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     final auth = Supabase.instance.client.auth;
     try {
-      if (_registering) {
-        final res = await auth.signUp(
-          email: _email.text.trim(),
-          password: _password.text,
-          data: {'full_name': _name.text.trim()},
-          emailRedirectTo: authRedirectUrl,
-        );
-        if (res.session == null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Cuenta creada. Revisa tu correo para confirmarla.'),
-          ));
-        }
+      if (_isEmail) {
+        await auth.signInWithPassword(email: _id.text.trim(), password: _password.text);
       } else {
-        await auth.signInWithPassword(email: _email.text.trim(), password: _password.text);
+        await auth.signInWithPassword(phone: normalizeHaitiPhone(_id.text)!, password: _password.text);
       }
     } on AuthException catch (e) {
-      setState(() => _error = e.message);
+      setState(() => _error = e.message.toLowerCase().contains('invalid') ? 'Datos de acceso incorrectos.' : e.message);
     } catch (_) {
       setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
     } finally {
@@ -81,9 +72,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _resetPassword() async {
-    final email = _email.text.trim();
+    final email = _id.text.trim();
     if (!email.contains('@')) {
-      setState(() => _error = 'Escribe tu correo para recuperar la contraseña.');
+      setState(() => _error = 'Para recuperar la contraseña escribe el correo de tu cuenta. '
+          'Si te registraste con teléfono, contacta a soporte desde la app.');
       return;
     }
     await Supabase.instance.client.auth.resetPasswordForEmail(email, redirectTo: authRedirectUrl);
@@ -96,85 +88,72 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          Stack(
-            children: [
-              const BrandHeader(),
-              if (Navigator.of(context).canPop())
-                Positioned(
-                  top: MediaQuery.of(context).padding.top,
-                  left: 4,
-                  child: const BackButton(color: Colors.white),
-                ),
-            ],
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      _registering ? 'Crear cuenta' : 'Iniciar sesión',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text('Completa misiones en el mapa y gana recompensas.'),
-                    const SizedBox(height: 20),
-                    if (_registering) ...[
-                      TextFormField(
-                        controller: _name,
-                        decoration: const InputDecoration(labelText: 'Nombre completo', prefixIcon: Icon(Icons.person_outline)),
-                        textCapitalization: TextCapitalization.words,
-                        validator: (v) => (v == null || v.trim().length < 3) ? 'Escribe tu nombre' : null,
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    TextFormField(
-                      controller: _email,
-                      decoration: const InputDecoration(labelText: 'Correo electrónico', prefixIcon: Icon(Icons.mail_outline)),
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      validator: (v) => (v == null || !v.contains('@')) ? 'Correo no válido' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _password,
-                      decoration: const InputDecoration(labelText: 'Contraseña', prefixIcon: Icon(Icons.lock_outline)),
-                      obscureText: true,
-                      validator: (v) => (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
-                    ),
-                    if (!_registering)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(onPressed: _busy ? null : _resetPassword, child: const Text('¿Olvidaste tu contraseña?')),
-                      ),
-                    if (_error != null) ...[
-                      const SizedBox(height: 8),
-                      Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                    ],
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: _busy ? null : _submit,
-                      child: _busy
-                          ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Text(_registering ? 'Registrarme' : 'Entrar'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: _busy ? null : () => setState(() => _registering = !_registering),
-                      child: Text(_registering ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'),
-                    ),
-                  ],
+    return HtScaffold(
+      background: Colors.white,
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+          children: [
+            const ScreenTitle('Iniciar sesión',
+                icon: Icons.login, subtitle: 'Completa misiones en el mapa y gana recompensas.'),
+            const SizedBox(height: 22),
+            TextFormField(
+              controller: _id,
+              decoration: const InputDecoration(
+                labelText: 'Teléfono o correo',
+                hintText: '37 12 34 56',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.telephoneNumber, AutofillHints.email],
+              onChanged: (_) => setState(() {}),
+              validator: (v) {
+                final s = (v ?? '').trim();
+                if (s.contains('@')) return null;
+                return normalizeHaitiPhone(s) == null ? 'Escribe tu teléfono (8 dígitos) o tu correo' : null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _password,
+              obscureText: _obscure,
+              decoration: InputDecoration(
+                labelText: 'Contraseña',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                  onPressed: () => setState(() => _obscure = !_obscure),
                 ),
               ),
+              validator: (v) => (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
             ),
-          ),
-        ],
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(onPressed: _busy ? null : _resetPassword, child: const Text('¿Olvidaste tu contraseña?')),
+            ),
+            if (_error != null) ...[
+              Text(_error!, style: const TextStyle(color: HtColors.red)),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: _busy ? null : _submit,
+              icon: _busy
+                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.login),
+              label: const Text('Entrar'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _busy
+                  ? null
+                  : () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const RegisterScreen())),
+              icon: const Icon(Icons.person_add_alt),
+              label: const Text('Crear una cuenta'),
+            ),
+          ],
+        ),
       ),
     );
   }

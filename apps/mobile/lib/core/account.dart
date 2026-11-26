@@ -1,0 +1,87 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Comunas ofrecidas en el registro y en el perfil.
+const haitiCommunes = [
+  'Puerto Príncipe',
+  'Delmas',
+  'Pétion-Ville',
+  'Carrefour',
+  'Tabarre',
+  'Croix-des-Bouquets',
+  'Cité Soleil',
+  'Kenscoff',
+  'Gressier',
+  'Léogâne',
+  'Cap-Haïtien',
+  'Gonaïves',
+  'Saint-Marc',
+  'Les Cayes',
+  'Jacmel',
+  'Jérémie',
+  'Hinche',
+  'Port-de-Paix',
+  'Fort-Liberté',
+  'Miragoâne',
+  'Otra',
+];
+
+const collaboratorTypes = [
+  'Colaborador independiente',
+  'Estudiante',
+  'Comerciante',
+  'Chofer / mototaxista',
+  'Otro',
+];
+
+const languageNames = {
+  'ht': 'Criollo haitiano / Kreyòl',
+  'fr': 'Francés / Français',
+  'es': 'Español',
+  'en': 'Inglés / English',
+};
+
+/// "37123456" o "+509 37 12 34 56" → "+50937123456". Devuelve null si no es un número haitiano de 8 dígitos.
+String? normalizeHaitiPhone(String input) {
+  var d = input.replaceAll(RegExp(r'\D'), '');
+  if (d.startsWith('509') && d.length == 11) d = d.substring(3);
+  if (d.length != 8) return null;
+  return '+509$d';
+}
+
+class MyProfile {
+  MyProfile(this.row);
+  final Map<String, dynamic> row;
+
+  String get fullName => (row['full_name'] as String?) ?? '';
+  String get firstName {
+    final f = (row['first_name'] as String?) ?? '';
+    if (f.isNotEmpty) return f;
+    return fullName.split(' ').first;
+  }
+
+  String? get phone => row['phone'] as String?;
+  String? get commune => row['commune'] as String?;
+  String? get birthDate => row['birth_date'] as String?;
+  String? get collaboratorType => row['collaborator_type'] as String?;
+  String get language => (row['preferred_language'] as String?) ?? 'ht';
+  bool get verified => (row['verified'] as bool?) ?? false;
+  bool get phoneVerified => (row['phone_verified'] as bool?) ?? false;
+}
+
+Future<MyProfile> loadMyProfile() async {
+  final db = Supabase.instance.client;
+  final uid = db.auth.currentUser!.id;
+  final row = await db.from('profiles').select().eq('id', uid).single();
+  final authPhone = db.auth.currentUser?.phone;
+  return MyProfile({
+    ...row,
+    // El teléfono verificado por SMS vive en auth.users.
+    'phone_verified': db.auth.currentUser?.phoneConfirmedAt != null,
+    if ((row['phone'] as String?) == null && authPhone != null && authPhone.isNotEmpty) 'phone': '+$authPhone',
+  });
+}
+
+Future<void> updateMyProfile(Map<String, dynamic> values) async {
+  final db = Supabase.instance.client;
+  await db.from('profiles').update(values).eq('id', db.auth.currentUser!.id);
+}

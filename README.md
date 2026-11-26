@@ -10,6 +10,15 @@ Base geoespacial colaborativa de Haití construida con misiones remuneradas en u
 Ver `docs/especificacion/HaitiTracking-Especificacion-MobileFirst-v1.0.md`.
 
 > Los retiros MonCash están desactivados hasta contar con aprobación comercial, legal y bancaria.
+> La app ya permite solicitarlos: se activan con `update platform_settings set value = jsonb_set(value, '{enabled}', 'true') where key = 'withdrawals';`
+> y cada solicitud queda en `withdrawal_requests` para pago manual por el equipo.
+
+## Registro por teléfono (SMS)
+
+Las cuentas nuevas se crean con teléfono + contraseña y se verifican con un código SMS.
+En Supabase: Authentication → Sign In / Providers → Phone → activar, elegir **Twilio** y pegar
+Account SID, Auth Token y Message Service SID. Sin esto, el paso «Verificar tu teléfono» no recibe códigos.
+Las cuentas antiguas con correo siguen entrando con su correo.
 
 ## Compilar la app móvil
 

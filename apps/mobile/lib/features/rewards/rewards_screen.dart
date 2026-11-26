@@ -1,33 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/money.dart';
 import '../../core/theme.dart';
+import '../../core/ui.dart';
+import 'withdraw_screens.dart';
+import 'withdrawals_screen.dart';
 
-/// Montos en centavos enteros para no usar float en dinero.
-int cents(Object? v) {
-  if (v == null) return 0;
-  final s = v.toString();
-  final neg = s.startsWith('-');
-  final parts = (neg ? s.substring(1) : s).split('.');
-  final whole = int.tryParse(parts[0]) ?? 0;
-  final frac = parts.length > 1 ? int.tryParse(parts[1].padRight(2, '0').substring(0, 2)) ?? 0 : 0;
-  final c = whole * 100 + frac;
-  return neg ? -c : c;
-}
-
-String money(int c) => '\$${(c ~/ 100)}.${(c.abs() % 100).toString().padLeft(2, '0')}';
+export '../../core/money.dart';
 
 const minWithdrawalCents = 500; // USD 5
 const maxWithdrawalCents = 5000; // USD 50
 
 class RewardsData {
-  RewardsData({required this.pendingCents, required this.earnedCents, required this.availableCents, required this.onHoldCents, required this.events});
+  RewardsData({required this.pendingCents, required this.totalEarnedCents, required this.withdrawableCents, required this.events});
+
+  /// Potencial de aportes aún en revisión (no es saldo).
   final int pendingCents;
-  final int earnedCents;
-  final int availableCents;
-  final int onHoldCents;
+
+  /// Todo lo aprobado alguna vez (incluye lo ya retirado).
+  final int totalEarnedCents;
+
+  /// Disponible para retirar: recompensas disponibles − retiros no rechazados.
+  final int withdrawableCents;
   final List<Map<String, dynamic>> events;
+}
+
+/// Saldo retirable. Si la función del servidor aún no existe, usa la suma de recompensas disponibles.
+Future<int> loadWithdrawableCents() async {
+  final db = Supabase.instance.client;
+  try {
+    return cents(await db.rpc('my_withdrawable_usd'));
+  } on PostgrestException {
+    final rows = await db
+        .from('reward_events')
+        .select('amount_usd')
+        .eq('user_id', db.auth.currentUser!.id)
+        .eq('status', 'AVAILABLE');
+    return rows.fold<int>(0, (a, r) => a + cents(r['amount_usd']));
+  }
 }
 
 Future<RewardsData> loadRewards() async {
@@ -39,7 +50,6 @@ Future<RewardsData> loadRewards() async {
       .eq('user_id', uid)
       .order('created_at', ascending: false)
       .limit(200));
-  // Potencial: aportes aún en revisión × recompensa de su misión (no es saldo).
   final pending = await db
       .from('mission_contributions')
       .select('id, missions(individual_reward_usd)')
@@ -49,13 +59,12 @@ Future<RewardsData> loadRewards() async {
   for (final p in pending) {
     pendingCents += cents((p['missions'] as Map<String, dynamic>?)?['individual_reward_usd']);
   }
-  int sumWhere(String status) =>
-      events.where((e) => e['status'] == status).fold(0, (a, e) => a + cents(e['amount_usd']));
+  const earned = {'EARNED', 'AVAILABLE', 'WITHDRAWAL_REQUESTED', 'PAID'};
+  final total = events.where((e) => earned.contains(e['status'])).fold<int>(0, (a, e) => a + cents(e['amount_usd']));
   return RewardsData(
     pendingCents: pendingCents,
-    earnedCents: sumWhere('EARNED'),
-    availableCents: sumWhere('AVAILABLE'),
-    onHoldCents: sumWhere('ON_HOLD'),
+    totalEarnedCents: total,
+    withdrawableCents: await loadWithdrawableCents(),
     events: events,
   );
 }
@@ -69,6 +78,7 @@ class RewardsScreen extends StatefulWidget {
 
 class _RewardsScreenState extends State<RewardsScreen> {
   late Future<RewardsData> _future = loadRewards();
+  bool _all = false;
 
   Future<void> _refresh() async {
     final f = loadRewards();
@@ -93,52 +103,83 @@ class _RewardsScreenState extends State<RewardsScreen> {
           );
         }
         final d = snap.data!;
-        final toward = d.earnedCents + d.availableCents;
-        final progress = (toward / minWithdrawalCents).clamp(0.0, 1.0);
+        final events = _all ? d.events : d.events.take(5).toList();
         return RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
             children: [
-              _BalanceCard(data: d),
+              const ScreenTitle('Mis recompensas', icon: Icons.savings, iconColor: HtColors.amber),
+              const SizedBox(height: 14),
+              _BalanceCard(cents: d.withdrawableCents),
               const SizedBox(height: 12),
-              Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(
-                      toward >= minWithdrawalCents
-                          ? '¡Alcanzaste el mínimo de retiro!'
-                          : 'Te faltan ${money(minWithdrawalCents - toward)} para el mínimo de retiro (\$5)',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(value: progress, minHeight: 12, color: HtColors.green, backgroundColor: const Color(0xFFE3E8F2)),
-                    ),
-                    const SizedBox(height: 6),
-                    Text('${money(toward)} de \$5.00', style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                  ]),
+              Row(children: [
+                Expanded(
+                  child: _MiniStat(
+                    icon: Icons.schedule,
+                    iconColor: HtColors.amber,
+                    label: 'En revisión',
+                    value: usd(d.pendingCents),
+                    background: Colors.white,
+                  ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _MiniStat(
+                    icon: Icons.check_circle,
+                    iconColor: HtColors.green,
+                    label: 'Total ganado',
+                    value: usd(d.totalEarnedCents),
+                    valueColor: HtColors.green,
+                    background: HtColors.greenSoft,
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => WithdrawAmountScreen(availableCents: d.withdrawableCents)));
+                  _refresh();
+                },
+                icon: const Icon(Icons.send),
+                label: const Text('Retirar recompensas'),
               ),
-              const SizedBox(height: 12),
-              _WithdrawCard(availableCents: d.availableCents),
-              const SizedBox(height: 16),
-              const Text('Historial', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WithdrawalsScreen())),
+                icon: const Icon(Icons.list),
+                label: const Text('Mis retiros'),
+              ),
+              const SizedBox(height: 20),
+              SectionTitle(
+                'Historial de ganancias',
+                icon: Icons.format_list_bulleted,
+                action: d.events.length > 5 ? (_all ? 'Ver menos' : 'Ver todo') : null,
+                onAction: () => setState(() => _all = !_all),
+              ),
               const SizedBox(height: 6),
               if (d.events.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Text('Aún no tienes recompensas. Cuando un moderador apruebe tus aportes aparecerán aquí.', textAlign: TextAlign.center),
+                  child: Text('Aún no tienes recompensas. Cuando se aprueben tus aportes aparecerán aquí.',
+                      textAlign: TextAlign.center),
+                )
+              else
+                HtCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  child: Column(children: [
+                    for (var i = 0; i < events.length; i++) ...[
+                      if (i > 0) const Divider(height: 1),
+                      _EventRow(e: events[i]),
+                    ],
+                  ]),
                 ),
-              for (final e in d.events) _EventTile(e: e),
               const SizedBox(height: 12),
               const Text(
                 'Las recompensas se acreditan solo tras la aprobación de cada aporte. '
                 'El saldo pasa a "disponible" después de los controles de calidad.',
-                style: TextStyle(fontSize: 12, color: Colors.black54),
+                style: TextStyle(fontSize: 12, color: HtColors.muted),
               ),
             ],
           ),
@@ -149,71 +190,81 @@ class _RewardsScreenState extends State<RewardsScreen> {
 }
 
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.data});
-  final RewardsData data;
+  const _BalanceCard({required this.cents});
+  final int cents;
 
   @override
   Widget build(BuildContext context) {
-    Widget cell(String label, int c, {Color? color, String? hint}) => Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            const SizedBox(height: 2),
-            Text(money(c), style: TextStyle(color: color ?? Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-            if (hint != null) Text(hint, style: const TextStyle(color: Colors.white54, fontSize: 10)),
-          ]),
-        );
     return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: HtColors.navy, borderRadius: BorderRadius.circular(18)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Mis ganancias (USD)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 14),
-        Row(children: [
-          cell('En revisión', data.pendingCents, color: const Color(0xFFFFD580), hint: 'potencial'),
-          cell('Aprobado', data.earnedCents),
-          cell('Disponible', data.availableCents, color: const Color(0xFF8CF0B4)),
-        ]),
-        if (data.onHoldCents > 0) ...[
-          const SizedBox(height: 10),
-          Text('Retenido para revisión: ${money(data.onHoldCents)}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
-        ],
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [HtColors.blue, Color(0xFF1E63E9)]),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Text('Saldo disponible', style: TextStyle(color: Colors.white, fontSize: 16)),
+              const SizedBox(width: 6),
+              Tooltip(
+                message: 'Recompensas aprobadas que ya puedes retirar.',
+                triggerMode: TooltipTriggerMode.tap,
+                child: Icon(Icons.info_outline, color: Colors.white.withValues(alpha: .9), size: 18),
+              ),
+            ]),
+            const SizedBox(height: 6),
+            Text(usd(cents), style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w800)),
+          ]),
+        ),
+        Icon(Icons.account_balance_wallet, color: Colors.white.withValues(alpha: .85), size: 56),
       ]),
     );
   }
 }
 
-class _WithdrawCard extends StatelessWidget {
-  const _WithdrawCard({required this.availableCents});
-  final int availableCents;
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    required this.background,
+    this.valueColor = HtColors.text,
+  });
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final Color background;
+  final Color valueColor;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Row(children: [
-            Icon(Icons.account_balance_wallet_outlined, color: HtColors.red),
-            SizedBox(width: 8),
-            Text('Retirar con MonCash', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+    return HtCard(
+      color: background,
+      padding: const EdgeInsets.all(12),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, color: iconColor),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(value, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: valueColor)),
+            ),
           ]),
-          const SizedBox(height: 6),
-          Text('Mínimo ${money(minWithdrawalCents)} y máximo ${money(maxWithdrawalCents)} por solicitud. '
-              'Las comisiones de MonCash corren por tu cuenta y se mostrarán antes de confirmar.'),
-          const SizedBox(height: 10),
-          const FilledButton(onPressed: null, child: Text('Retiro temporalmente no disponible')),
-          const SizedBox(height: 4),
-          const Text('Los retiros se activarán cuando el servicio MonCash esté aprobado. Tu saldo queda guardado.',
-              style: TextStyle(fontSize: 12, color: Colors.black54)),
-        ]),
-      ),
+        ),
+      ]),
     );
   }
 }
 
-class _EventTile extends StatelessWidget {
-  const _EventTile({required this.e});
+class _EventRow extends StatelessWidget {
+  const _EventRow({required this.e});
   final Map<String, dynamic> e;
 
   static const _kinds = {
@@ -222,33 +273,36 @@ class _EventTile extends StatelessWidget {
     'WELCOME_BONUS': 'Bono de bienvenida',
     'ADJUSTMENT': 'Ajuste',
   };
-  static const _status = {
-    'EARNED': 'Aprobado',
-    'AVAILABLE': 'Disponible',
-    'ON_HOLD': 'Retenido',
-    'WITHDRAWAL_REQUESTED': 'En retiro',
-    'PAID': 'Pagado',
-    'REVERSED': 'Revertido',
-    'PENDING_REVIEW': 'En revisión',
-  };
 
   @override
   Widget build(BuildContext context) {
     final amount = cents(e['amount_usd']);
-    final place = (e['mission_contributions'] as Map<String, dynamic>?)?['name'] as String?;
     final mission = (e['missions'] as Map<String, dynamic>?)?['title'] as String?;
-    final date = DateFormat('dd/MM/yyyy').format(DateTime.parse(e['created_at'] as String).toLocal());
-    return Card(
-      child: ListTile(
-        leading: Icon(e['kind'] == 'MISSION_BONUS' ? Icons.emoji_events_outlined : Icons.place_outlined, color: HtColors.blue),
-        title: Text(_kinds[e['kind']] ?? e['kind'] as String),
-        subtitle: Text([if (place != null) place, if (mission != null) mission, '$date · ${_status[e['status']] ?? e['status']}'].join('\n')),
-        isThreeLine: place != null || mission != null,
-        trailing: Text(
-          '${amount >= 0 ? '+' : '-'}${money(amount.abs())}',
-          style: TextStyle(fontWeight: FontWeight.bold, color: amount >= 0 ? HtColors.green : HtColors.red, fontSize: 16),
+    final place = (e['mission_contributions'] as Map<String, dynamic>?)?['name'] as String?;
+    final title = e['kind'] == 'MISSION_BONUS'
+        ? 'Bono de misión'
+        : (mission != null ? 'Misión: $mission' : (_kinds[e['kind']] ?? e['kind'] as String));
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(children: [
+        IconTile(e['kind'] == 'MISSION_BONUS' ? Icons.emoji_events_outlined : Icons.storefront, size: 44),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              [if (place != null) place, fechaHora(DateTime.parse(e['created_at'] as String))].join(' · '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: HtColors.muted, fontSize: 13),
+            ),
+          ]),
         ),
-      ),
+        Text(
+          '${amount >= 0 ? '+' : '-'}${money(amount.abs())}',
+          style: TextStyle(fontWeight: FontWeight.w800, color: amount >= 0 ? HtColors.green : HtColors.red, fontSize: 16),
+        ),
+      ]),
     );
   }
 }

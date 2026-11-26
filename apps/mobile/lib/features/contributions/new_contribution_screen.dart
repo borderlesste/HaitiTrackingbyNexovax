@@ -12,7 +12,8 @@ import '../../core/theme.dart';
 import '../missions/mission.dart';
 import 'contribution_draft.dart';
 import 'contribution_service.dart';
-import 'my_contributions_screen.dart';
+import 'contribution_sent_screen.dart';
+import '../../core/ui.dart';
 
 /// Precisión máxima aceptada para enviar (metros).
 const maxAccuracyM = 30.0;
@@ -40,10 +41,17 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
   File? _photo;
   bool _sending = false;
 
+  /// Número de este aporte dentro de la misión (1 de 5, 2 de 5...).
+  int _number = 1;
+
   @override
   void initState() {
     super.initState();
     _locate();
+    _service.missionContributions(widget.mission.id).then((list) {
+      final done = list.where((c) => c['status'] != 'REJECTED').length;
+      if (mounted) setState(() => _number = done + 1);
+    }).catchError((_) {});
   }
 
   @override
@@ -143,7 +151,11 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
       final result = await _service.submit(draft);
       if (!mounted) return;
       await Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (_) => _SubmittedScreen(offline: result == SubmitResult.savedOffline, reward: widget.mission.rewardUsd),
+        builder: (_) => ContributionSentScreen(
+          mission: widget.mission,
+          draft: draft,
+          offline: result == SubmitResult.savedOffline,
+        ),
       ));
     } on PostgrestException catch (e) {
       _snack('El servidor rechazó el aporte: ${e.message}');
@@ -185,27 +197,63 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
 
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Registrar establecimiento')),
+    final total = widget.mission.requiredContributions;
+    return HtScaffold(
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
           children: [
-            Text(widget.mission.title, style: const TextStyle(color: Colors.black54)),
-            const SizedBox(height: 12),
-            _gpsCard(),
-            const SizedBox(height: 16),
-            const Text('Foto del establecimiento *', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            if (_photo != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Image.file(_photo!, height: 200, width: double.infinity, fit: BoxFit.cover),
+            Row(children: [
+              const Expanded(
+                child: Text('Registrar establecimiento',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: HtColors.text)),
               ),
-            const SizedBox(height: 8),
+              if (total > 1)
+                Text('Aporte ${_number.clamp(1, total)} de $total', style: const TextStyle(color: HtColors.muted)),
+            ]),
+            const SizedBox(height: 4),
+            Text(widget.mission.title, style: const TextStyle(color: HtColors.muted)),
+            if (total > 1) ...[
+              const SizedBox(height: 14),
+              StepDots(total: total.clamp(1, 8), current: _number.clamp(1, 8)),
+            ],
+            const SizedBox(height: 18),
+            const _FieldLabel('Foto del establecimiento'),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                height: 200,
+                color: HtColors.blueSoft,
+                child: _photo == null
+                    ? const Center(
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.add_a_photo_outlined, size: 44, color: HtColors.blue),
+                          SizedBox(height: 6),
+                          Text('Toma una foto clara del frente del lugar'),
+                        ]),
+                      )
+                    : Stack(fit: StackFit.expand, children: [
+                        Image.file(_photo!, fit: BoxFit.cover),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: CircleAvatar(
+                            backgroundColor: Colors.white,
+                            child: IconButton(
+                              icon: const Icon(Icons.close, color: HtColors.text),
+                              tooltip: 'Quitar foto',
+                              onPressed: () => setState(() => _photo = null),
+                            ),
+                          ),
+                        ),
+                      ]),
+              ),
+            ),
+            const SizedBox(height: 10),
             Row(children: [
               Expanded(
                 child: OutlinedButton.icon(
@@ -214,54 +262,69 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
                   label: const Text('Tomar foto'),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => _pickPhoto(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Galería'),
+                  label: const Text('Elegir de galería'),
                 ),
               ),
             ]),
+            const SizedBox(height: 4),
             const Text('No fotografíes personas ni el interior de viviendas.',
-                style: TextStyle(fontSize: 12, color: Colors.black54)),
+                style: TextStyle(fontSize: 12, color: HtColors.muted)),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'Nombre del establecimiento *'),
-              textCapitalization: TextCapitalization.words,
-              validator: (v) => (v == null || v.trim().length < 2) ? 'Escribe el nombre' : null,
+            HtCard(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const SectionTitle('Información del establecimiento', icon: Icons.storefront),
+                const SizedBox(height: 12),
+                const _FieldLabel('Nombre'),
+                TextFormField(
+                  controller: _name,
+                  decoration: const InputDecoration(hintText: 'Mini Market Belle Vue'),
+                  textCapitalization: TextCapitalization.words,
+                  validator: (v) => (v == null || v.trim().length < 2) ? 'Escribe el nombre' : null,
+                ),
+                const SizedBox(height: 12),
+                const _FieldLabel('Categoría'),
+                DropdownButtonFormField<String>(
+                  initialValue: _category,
+                  isExpanded: true,
+                  decoration: const InputDecoration(prefixIcon: Icon(Icons.storefront_outlined)),
+                  hint: const Text('Elige una categoría'),
+                  items: [for (final c in placeCategories) DropdownMenuItem(value: c, child: Text(c))],
+                  onChanged: (v) => setState(() => _category = v),
+                  validator: (v) => v == null ? 'Elige una categoría' : null,
+                ),
+                const SizedBox(height: 12),
+                const _FieldLabel('Descripción', optional: true),
+                TextFormField(
+                  controller: _notes,
+                  decoration: const InputDecoration(hintText: 'Tienda de alimentos y artículos básicos.'),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 12),
+                const _FieldLabel('Referencia de ubicación', optional: true),
+                TextFormField(
+                  controller: _reference,
+                  decoration: const InputDecoration(hintText: 'Ej.: frente a la estación de Delmas 33'),
+                ),
+              ]),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              decoration: const InputDecoration(labelText: 'Categoría *'),
-              items: [for (final c in placeCategories) DropdownMenuItem(value: c, child: Text(c))],
-              onChanged: (v) => setState(() => _category = v),
-              validator: (v) => v == null ? 'Elige una categoría' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _reference,
-              decoration: const InputDecoration(labelText: 'Referencia de ubicación', hintText: 'Ej.: frente a la estación de Delmas 33'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _notes,
-              decoration: const InputDecoration(labelText: 'Notas (opcional)'),
-              maxLines: 2,
-            ),
+            _gpsCard(),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: _sending ? null : _review,
               icon: _sending
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.send),
-              label: const Text('Enviar aporte'),
+                  : const Icon(Icons.check),
+              label: const Text('Guardar y continuar'),
             ),
             const SizedBox(height: 8),
             Text('Recompensa posible: \$${widget.mission.rewardUsd} USD, solo si el aporte es aprobado.',
-                textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: HtColors.muted)),
           ],
         ),
       ),
@@ -271,7 +334,7 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
   Widget _gpsCard() {
     final p = _position;
     final ok = p != null && _accuracyOk && _insideArea;
-    final Color bg = p == null ? Colors.white : (ok ? const Color(0xFFE6F6EC) : const Color(0xFFFDECEC));
+    final Color bg = p == null ? Colors.white : (ok ? HtColors.greenSoft : HtColors.redSoft);
     String status;
     if (_locating) {
       status = 'Buscando tu ubicación…';
@@ -290,66 +353,58 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
     }
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
-      child: Row(
-        children: [
-          Icon(Icons.my_location, color: ok ? HtColors.green : HtColors.red),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Ubicación (GPS)', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(status),
-                if (p != null)
-                  Text('${p.latitude.toStringAsFixed(5)}, ${p.longitude.toStringAsFixed(5)} · ±${p.accuracy.round()} m',
-                      style: const TextStyle(fontSize: 12, color: Colors.black54)),
-              ],
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14), border: Border.all(color: HtColors.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.location_on, color: ok ? HtColors.green : HtColors.red),
+          const SizedBox(width: 10),
+          const Expanded(child: Text('Ubicación (GPS)', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+          if (ok) const Icon(Icons.check_circle, color: HtColors.green),
+        ]),
+        const SizedBox(height: 4),
+        Text(status, style: TextStyle(color: ok ? HtColors.green : HtColors.text, fontWeight: FontWeight.w600)),
+        if (p != null) ...[
+          const Divider(height: 18),
+          Row(children: [
+            const Icon(Icons.my_location, size: 18, color: HtColors.navy),
+            const SizedBox(width: 8),
+            Expanded(child: Text('${p.latitude.toStringAsFixed(5)}, ${p.longitude.toStringAsFixed(5)}')),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: HtColors.blueSoft, borderRadius: BorderRadius.circular(8)),
+              child: Text('± ${p.accuracy.round()} m', style: const TextStyle(color: HtColors.blue, fontWeight: FontWeight.w600)),
             ),
-          ),
-          TextButton(onPressed: _locating ? null : _locate, child: const Text('Actualizar')),
+          ]),
         ],
-      ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: _locating ? null : _locate,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Actualizar'),
+          ),
+        ),
+      ]),
     );
   }
 }
 
-class _SubmittedScreen extends StatelessWidget {
-  const _SubmittedScreen({required this.offline, required this.reward});
-  final bool offline;
-  final String reward;
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text, {this.optional = false});
+  final String text;
+  final bool optional;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Aporte')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text.rich(TextSpan(
+          text: text,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: HtColors.text),
           children: [
-            Icon(offline ? Icons.cloud_off : Icons.check_circle, size: 80, color: offline ? Colors.orange : HtColors.green),
-            const SizedBox(height: 16),
-            Text(offline ? 'Guardado en tu teléfono' : '¡Aporte enviado!',
-                textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(
-              offline
-                  ? 'No hay conexión. Lo enviaremos cuando vuelvas a tener internet (o desde "Mis aportes").'
-                  : 'Un moderador lo revisará. Si se aprueba, se acreditarán \$$reward USD en tus ganancias.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: () => Navigator.of(context)
-                  .pushReplacement(MaterialPageRoute(builder: (_) => const MyContributionsScreen())),
-              child: const Text('Ver mis aportes'),
-            ),
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Volver a la misión')),
+            optional
+                ? const TextSpan(text: ' (opcional)', style: TextStyle(fontWeight: FontWeight.w400, color: HtColors.muted))
+                : const TextSpan(text: ' *', style: TextStyle(color: HtColors.red)),
           ],
-        ),
-      ),
-    );
-  }
+        )),
+      );
 }

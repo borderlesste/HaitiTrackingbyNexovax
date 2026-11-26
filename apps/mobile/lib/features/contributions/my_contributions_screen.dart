@@ -1,22 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../core/theme.dart';
+import '../../core/ui.dart';
 import 'contribution_draft.dart';
 import 'contribution_service.dart';
+import 'contribution_widgets.dart';
 
-const _statusLabels = {
-  'SUBMITTED': ('Enviado', Colors.blueGrey),
-  'AUTO_CHECKED': ('En revisión', Colors.orange),
-  'HUMAN_REVIEW': ('En revisión', Colors.orange),
-  'APPROVED': ('Aprobado', HtColors.green),
-  'REJECTED': ('Rechazado', HtColors.red),
-  'NEEDS_CHANGES': ('Requiere cambios', Colors.deepOrange),
-  'APPEALED': ('Apelado', Colors.purple),
-};
-
+/// Historial de aportes con filtros por estado. [embedded] = dentro de la pestaña "Aportes".
 class MyContributionsScreen extends StatefulWidget {
-  const MyContributionsScreen({super.key});
+  const MyContributionsScreen({super.key, this.embedded = false});
+  final bool embedded;
 
   @override
   State<MyContributionsScreen> createState() => _MyContributionsScreenState();
@@ -26,9 +19,11 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
   final _service = ContributionService();
   List<ContributionDraft> _pending = const [];
   List<Map<String, dynamic>> _sent = const [];
+  Map<String, String> _photos = const {};
   bool _loading = true;
   bool _offline = false;
   bool _syncing = false;
+  int _filter = 0;
 
   @override
   void initState() {
@@ -37,12 +32,13 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
     final pending = await _service.store.all();
     var offline = false;
-    List<Map<String, dynamic>> sent = _sent;
+    var sent = _sent;
+    var photos = _photos;
     try {
       sent = await _service.myContributions();
+      photos = await _service.photoUrls(sent.map(firstPhoto).whereType<String>());
     } catch (_) {
       offline = true;
     }
@@ -50,6 +46,7 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
     setState(() {
       _pending = pending;
       _sent = sent;
+      _photos = photos;
       _offline = offline;
       _loading = false;
     });
@@ -60,79 +57,150 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
     final n = await _service.syncPending();
     if (!mounted) return;
     setState(() => _syncing = false);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(n == 0 ? 'No se pudo enviar todavía.' : '$n aporte(s) enviados.')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(n == 0 ? 'No se pudo enviar todavía.' : '$n aporte(s) enviados.')));
     _load();
+  }
+
+  bool _matches(Map<String, dynamic> c, int f) => switch (f) {
+        1 => isInReview(c['status'] as String?),
+        2 => c['status'] == 'APPROVED',
+        3 => c['status'] == 'REJECTED' || c['status'] == 'NEEDS_CHANGES',
+        _ => true,
+      };
+
+  void _showDetail(Map<String, dynamic> c) {
+    final reason = c['review_reason'] as String?;
+    final mission = (c['missions'] as Map<String, dynamic>?)?['title'] as String?;
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text(c['name'] as String, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800))),
+              ContributionStatusChip(c['status'] as String?),
+            ]),
+            const SizedBox(height: 12),
+            KvRow('Categoría', c['category'] as String? ?? '', icon: Icons.storefront_outlined),
+            if (mission != null) KvRow('Misión', mission, icon: Icons.flag_outlined),
+            KvRow('Enviado', fechaHora(DateTime.parse(c['created_at'] as String)), icon: Icons.schedule),
+            if (reason != null && reason.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              InfoBanner('Motivo de la revisión: $reason', warning: true),
+            ],
+          ]),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final fmt = DateFormat('dd/MM/yyyy HH:mm');
-    return Scaffold(
-      appBar: AppBar(title: const Text('Mis aportes')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.all(12),
-                children: [
-                  if (_offline)
-                    const Card(
-                      color: Color(0xFFFFF4E5),
-                      child: ListTile(leading: Icon(Icons.cloud_off), title: Text('Sin conexión: mostrando solo lo guardado en el teléfono.')),
-                    ),
-                  if (_pending.isNotEmpty) ...[
-                    Row(children: [
-                      Expanded(child: Text('Pendientes de envío (${_pending.length})', style: const TextStyle(fontWeight: FontWeight.bold))),
-                      TextButton.icon(
-                        onPressed: _syncing ? null : _sync,
-                        icon: const Icon(Icons.cloud_upload_outlined),
-                        label: const Text('Enviar ahora'),
-                      ),
-                    ]),
-                    for (final d in _pending)
-                      Card(
-                        child: ListTile(
-                          leading: const Icon(Icons.cloud_off, color: Colors.orange),
-                          title: Text(d.name),
-                          subtitle: Text('${d.missionTitle}\n${fmt.format(d.capturedAt.toLocal())}'
-                              '${d.lastError != null ? ' · ${d.lastError}' : ''}'),
-                          isThreeLine: true,
-                        ),
-                      ),
-                    const SizedBox(height: 12),
+    final counts = [for (var f = 0; f < 4; f++) _sent.where((c) => _matches(c, f)).length];
+    final visible = _sent.where((c) => _matches(c, _filter)).toList();
+    final content = _loading
+        ? const Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+              children: [
+                const ScreenTitle('Mis aportes', icon: Icons.storefront_outlined),
+                const SizedBox(height: 14),
+                FilterPills(
+                  labels: [
+                    'Todos (${counts[0]})',
+                    'En revisión (${counts[1]})',
+                    'Aprobados (${counts[2]})',
+                    'Rechazados (${counts[3]})',
                   ],
-                  const Text('Enviados', style: TextStyle(fontWeight: FontWeight.bold)),
-                  if (_sent.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Text('Todavía no has enviado aportes. Elige una misión en el mapa para empezar.', textAlign: TextAlign.center),
-                    ),
-                  for (final c in _sent) _sentTile(c, fmt),
+                  selected: _filter,
+                  onSelected: (i) => setState(() => _filter = i),
+                ),
+                const SizedBox(height: 12),
+                if (_offline) ...[
+                  const InfoBanner('Sin conexión: mostrando solo lo guardado en el teléfono.', warning: true),
+                  const SizedBox(height: 12),
                 ],
-              ),
+                if (_pending.isNotEmpty) ...[
+                  HtCard(
+                    color: HtColors.amberSoft,
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Expanded(
+                          child: Text('Pendientes de envío (${_pending.length})',
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                        ),
+                        TextButton.icon(
+                          onPressed: _syncing ? null : _sync,
+                          icon: const Icon(Icons.cloud_upload_outlined),
+                          label: const Text('Enviar ahora'),
+                        ),
+                      ]),
+                      for (final d in _pending)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text('• ${d.name} · ${fechaHora(d.capturedAt)}'
+                              '${d.lastError != null ? ' · ${d.lastError}' : ''}'),
+                        ),
+                    ]),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (visible.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Text('No hay aportes en esta lista. Elige una misión en el mapa para empezar.',
+                        textAlign: TextAlign.center),
+                  )
+                else
+                  HtCard(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    child: Column(children: [
+                      for (var i = 0; i < visible.length; i++) ...[
+                        if (i > 0) const Divider(height: 1),
+                        _row(visible[i]),
+                      ],
+                    ]),
+                  ),
+              ],
             ),
-    );
+          );
+    if (widget.embedded) return content;
+    return HtScaffold(body: content);
   }
 
-  Widget _sentTile(Map<String, dynamic> c, DateFormat fmt) {
-    final (label, color) = _statusLabels[c['status']] ?? (c['status'] as String, Colors.grey);
-    final mission = (c['missions'] as Map<String, dynamic>?)?['title'] as String? ?? '';
-    final reason = c['review_reason'] as String?;
-    return Card(
-      child: ListTile(
-        title: Text(c['name'] as String),
-        subtitle: Text([
-          if (mission.isNotEmpty) mission,
-          fmt.format(DateTime.parse(c['created_at'] as String).toLocal()),
-          if (reason != null && reason.isNotEmpty) 'Motivo: $reason',
-        ].join('\n')),
-        isThreeLine: true,
-        trailing: Chip(
-          label: Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
-          backgroundColor: color,
-          side: BorderSide.none,
-        ),
+  Widget _row(Map<String, dynamic> c) {
+    return InkWell(
+      onTap: () => _showDetail(c),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(children: [
+          PlaceThumb(url: _photos[firstPhoto(c)], size: 62),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(c['name'] as String,
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 2),
+              Row(children: [
+                const Icon(Icons.storefront_outlined, size: 15, color: HtColors.muted),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(c['category'] as String? ?? '',
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: HtColors.muted)),
+                ),
+              ]),
+              const SizedBox(height: 2),
+              Text(fechaHora(DateTime.parse(c['created_at'] as String)),
+                  style: const TextStyle(color: HtColors.muted, fontSize: 13)),
+            ]),
+          ),
+          ContributionStatusChip(c['status'] as String?),
+          const Icon(Icons.chevron_right, color: HtColors.muted),
+        ]),
       ),
     );
   }

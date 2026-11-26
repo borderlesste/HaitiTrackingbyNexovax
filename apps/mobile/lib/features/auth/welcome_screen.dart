@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme.dart';
 import 'login_screen.dart';
+import 'register_screen.dart';
 
 /// Idiomas ofrecidos en la bienvenida. Por ahora solo se traduce esta pantalla.
 enum WelcomeLang { es, fr, ht, en }
@@ -108,7 +109,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _openLogin({required bool registering}) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => LoginScreen(startRegistering: registering)));
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => registering ? const RegisterScreen() : const LoginScreen(),
+    ));
   }
 
   @override
