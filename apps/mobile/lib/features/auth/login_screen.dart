@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -7,7 +9,10 @@ import '../../core/brand_header.dart';
 const authRedirectUrl = 'com.nexovax.haititracking://login-callback';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.startRegistering = false});
+
+  /// Abre directamente el formulario de registro (botón «Comenzar» de la bienvenida).
+  final bool startRegistering;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -18,12 +23,25 @@ class _LoginScreenState extends State<LoginScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  bool _registering = false;
+  late bool _registering = widget.startRegistering;
   bool _busy = false;
   String? _error;
+  StreamSubscription<AuthState>? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // Si se abrió desde la bienvenida, al iniciar sesión se vuelve a la raíz, donde AuthGate ya muestra la app.
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((state) {
+      if (state.session != null && mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _name.dispose();
     _email.dispose();
     _password.dispose();
@@ -81,7 +99,17 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Column(
         children: [
-          const BrandHeader(),
+          Stack(
+            children: [
+              const BrandHeader(),
+              if (Navigator.of(context).canPop())
+                Positioned(
+                  top: MediaQuery.of(context).padding.top,
+                  left: 4,
+                  child: const BackButton(color: Colors.white),
+                ),
+            ],
+          ),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),

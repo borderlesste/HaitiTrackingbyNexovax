@@ -10,7 +10,7 @@ import 'core/profile_context.dart';
 import 'core/theme.dart';
 import 'features/company/company_shell.dart';
 import 'features/developer/developer_shell.dart';
-import 'features/auth/login_screen.dart';
+import 'features/auth/welcome_screen.dart';
 import 'features/auth/new_password_screen.dart';
 import 'features/home/home_shell.dart';
 
@@ -53,7 +53,7 @@ class HaitiTrackingApp extends StatelessWidget {
   }
 }
 
-/// Muestra login o la app según haya sesión. Si se abre el enlace de recuperación, pide la nueva contraseña.
+/// Muestra la bienvenida (y desde ahí el login) o la app según haya sesión. Si se abre el enlace de recuperación, pide la nueva contraseña.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -71,7 +71,7 @@ class _AuthGateState extends State<AuthGate> {
       stream: auth.onAuthStateChange,
       builder: (context, snap) {
         if (snap.data?.event == AuthChangeEvent.passwordRecovery) _recovering = true;
-        if (auth.currentSession == null) return const LoginScreen();
+        if (auth.currentSession == null) return const WelcomeScreen();
         if (_recovering) return NewPasswordScreen(onDone: () => setState(() => _recovering = false));
         return ValueListenableBuilder<AppProfile>(
           valueListenable: ProfileContext.current,
