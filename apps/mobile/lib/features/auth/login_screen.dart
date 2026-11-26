@@ -7,6 +7,7 @@ import '../../core/account.dart';
 import '../../core/profile_context.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
+import 'recover_password_screen.dart';
 import 'register_screen.dart';
 
 /// Enlace que abre la app desde los correos de confirmación y de recuperación.
@@ -74,19 +75,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _resetPassword() async {
-    final email = _id.text.trim();
-    if (!email.contains('@')) {
-      setState(() => _error = 'Para recuperar la contraseña escribe el correo de tu cuenta. '
-          'Si te registraste con teléfono, contacta a soporte desde la app.');
-      return;
-    }
-    await Supabase.instance.client.auth.resetPasswordForEmail(email, redirectTo: authRedirectUrl);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Te enviamos un enlace para restablecer la contraseña.'),
-      ));
-    }
+  void _resetPassword() {
+    Navigator.of(context).pushReplacement(MaterialPageRoute(
+      builder: (_) => RecoverPasswordScreen(initial: _id.text.trim()),
+    ));
   }
 
   @override

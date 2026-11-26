@@ -11,6 +11,7 @@ import 'edit_profile_screen.dart';
 import 'help_support_screen.dart';
 import 'moncash_settings_screen.dart';
 import 'privacy_security_screen.dart';
+import 'verify_account_screen.dart';
 
 class _Stats {
   const _Stats({this.total = 0, this.approved = 0, this.trustPct, this.missionsDone = 0});
@@ -176,6 +177,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 leading: const Icon(Icons.person_outline, color: HtColors.navy),
                 title: 'Mi cuenta y datos personales',
                 onTap: p == null ? null : () => _open(EditProfileScreen(profile: p)),
+              ),
+              _SettingTile(
+                leading: const Icon(Icons.verified_user_outlined, color: HtColors.navy),
+                title: 'Verificación de cuenta',
+                subtitle: 'Teléfono y correo',
+                onTap: () => _open(const VerifyAccountScreen()),
               ),
               _SettingTile(
                 leading: const MonCashBadge(size: 36),

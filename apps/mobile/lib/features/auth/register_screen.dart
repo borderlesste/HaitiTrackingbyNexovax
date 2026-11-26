@@ -351,6 +351,8 @@ class _ProfileStepState extends State<_ProfileStep> {
   final _form = GlobalKey<FormState>();
   DateTime? _birth;
   String? _commune;
+  String? _department;
+  String _language = 'ht';
   String? _type = collaboratorTypes.first;
   bool _terms = false;
   bool _busy = false;
@@ -387,6 +389,8 @@ class _ProfileStepState extends State<_ProfileStep> {
         'phone': user.phone == null || user.phone!.isEmpty ? null : '+${user.phone}',
         'birth_date': DateFormat('yyyy-MM-dd').format(_birth!),
         'commune': _commune,
+        'department': _department,
+        'preferred_language': _language,
         if (collaborator) 'collaborator_type': _type,
         'terms_accepted_at': DateTime.now().toUtc().toIso8601String(),
       });
@@ -436,7 +440,9 @@ class _ProfileStepState extends State<_ProfileStep> {
             child: InputDecorator(
               decoration: const InputDecoration(prefixIcon: Icon(Icons.calendar_month_outlined)),
               child: Text(
-                _birth == null ? 'DD / MM / AAAA' : DateFormat('dd / MM / yyyy').format(_birth!),
+                _birth == null
+                    ? 'DD / MM / AAAA'
+                    : '${DateFormat('dd / MM / yyyy').format(_birth!)}  ·  ${ageFrom(_birth!)} años',
                 style: TextStyle(fontSize: 16, color: _birth == null ? HtColors.muted : HtColors.text),
               ),
             ),
@@ -449,8 +455,32 @@ class _ProfileStepState extends State<_ProfileStep> {
             decoration: const InputDecoration(prefixIcon: Icon(Icons.location_on_outlined)),
             hint: const Text('Elige tu comuna'),
             items: [for (final c in haitiCommunes) DropdownMenuItem(value: c, child: Text(c))],
-            onChanged: (v) => setState(() => _commune = v),
+            onChanged: (v) => setState(() {
+              _commune = v;
+              _department = communeDepartment[v] ?? _department;
+            }),
             validator: (v) => v == null ? 'Elige tu comuna' : null,
+          ),
+          const SizedBox(height: 14),
+          const _Label('Departamento'),
+          DropdownButtonFormField<String>(
+            key: ValueKey(_department),
+            initialValue: _department,
+            isExpanded: true,
+            decoration: const InputDecoration(prefixIcon: Icon(Icons.map_outlined)),
+            hint: const Text('Elige tu departamento'),
+            items: [for (final d in haitiDepartments) DropdownMenuItem(value: d, child: Text(d))],
+            onChanged: (v) => setState(() => _department = v),
+            validator: (v) => v == null ? 'Elige tu departamento' : null,
+          ),
+          const SizedBox(height: 14),
+          const _Label('Idioma preferido'),
+          DropdownButtonFormField<String>(
+            initialValue: _language,
+            isExpanded: true,
+            decoration: const InputDecoration(prefixIcon: Icon(Icons.language)),
+            items: [for (final e in languageNames.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+            onChanged: (v) => setState(() => _language = v ?? 'ht'),
           ),
           const SizedBox(height: 14),
           if (widget.profile == AppProfile.collaborator) ...[

@@ -25,6 +25,52 @@ const haitiCommunes = [
   'Otra',
 ];
 
+/// Los 10 departamentos de Haití.
+const haitiDepartments = [
+  'Ouest',
+  'Artibonite',
+  'Centre',
+  'Grand\'Anse',
+  'Nippes',
+  'Nord',
+  'Nord-Est',
+  'Nord-Ouest',
+  'Sud',
+  'Sud-Est',
+];
+
+/// Departamento de cada comuna de la lista (para completarlo solo).
+const communeDepartment = {
+  'Puerto Príncipe': 'Ouest',
+  'Delmas': 'Ouest',
+  'Pétion-Ville': 'Ouest',
+  'Carrefour': 'Ouest',
+  'Tabarre': 'Ouest',
+  'Croix-des-Bouquets': 'Ouest',
+  'Cité Soleil': 'Ouest',
+  'Kenscoff': 'Ouest',
+  'Gressier': 'Ouest',
+  'Léogâne': 'Ouest',
+  'Cap-Haïtien': 'Nord',
+  'Gonaïves': 'Artibonite',
+  'Saint-Marc': 'Artibonite',
+  'Les Cayes': 'Sud',
+  'Jacmel': 'Sud-Est',
+  'Jérémie': 'Grand\'Anse',
+  'Hinche': 'Centre',
+  'Port-de-Paix': 'Nord-Ouest',
+  'Fort-Liberté': 'Nord-Est',
+  'Miragoâne': 'Nippes',
+};
+
+/// Edad cumplida a hoy.
+int ageFrom(DateTime birth) {
+  final now = DateTime.now();
+  var age = now.year - birth.year;
+  if (now.month < birth.month || (now.month == birth.month && now.day < birth.day)) age--;
+  return age;
+}
+
 const collaboratorTypes = [
   'Colaborador independiente',
   'Estudiante',
@@ -61,6 +107,7 @@ class MyProfile {
 
   String? get phone => row['phone'] as String?;
   String? get commune => row['commune'] as String?;
+  String? get department => row['department'] as String?;
   String? get birthDate => row['birth_date'] as String?;
   String? get collaboratorType => row['collaborator_type'] as String?;
   String get language => (row['preferred_language'] as String?) ?? 'ht';

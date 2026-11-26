@@ -6,7 +6,7 @@ import '../../core/account.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 
-/// Editar nombre, comuna, fecha de nacimiento y ocupación. El teléfono se cambia con verificación SMS.
+/// Editar nombre, comuna, departamento, idioma, fecha de nacimiento y ocupación. El teléfono se cambia con verificación SMS.
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key, required this.profile});
   final MyProfile profile;
@@ -21,6 +21,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final _last = TextEditingController(text: widget.profile.row['last_name'] as String? ?? '');
   late String? _commune = haitiCommunes.contains(widget.profile.commune) ? widget.profile.commune : null;
   late String? _type = collaboratorTypes.contains(widget.profile.collaboratorType) ? widget.profile.collaboratorType : null;
+  late String? _department = haitiDepartments.contains(widget.profile.department)
+      ? widget.profile.department
+      : communeDepartment[widget.profile.commune];
+  late String _language = widget.profile.language;
   late DateTime? _birth = widget.profile.birthDate == null ? null : DateTime.tryParse(widget.profile.birthDate!);
   bool _busy = false;
 
@@ -43,6 +47,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'last_name': last,
         'full_name': full,
         'commune': _commune,
+        'department': _department,
+        'preferred_language': _language,
         'collaborator_type': _type,
         'birth_date': _birth == null ? null : DateFormat('yyyy-MM-dd').format(_birth!),
       });
@@ -95,7 +101,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               },
               child: InputDecorator(
                 decoration: const InputDecoration(labelText: 'Fecha de nacimiento', prefixIcon: Icon(Icons.calendar_month_outlined)),
-                child: Text(_birth == null ? 'Sin indicar' : DateFormat('dd / MM / yyyy').format(_birth!)),
+                child: Text(_birth == null
+                    ? 'Sin indicar'
+                    : '${DateFormat('dd / MM / yyyy').format(_birth!)}  ·  ${ageFrom(_birth!)} años'),
               ),
             ),
             const SizedBox(height: 12),
@@ -104,7 +112,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Comuna / Ciudad', prefixIcon: Icon(Icons.location_on_outlined)),
               items: [for (final c in haitiCommunes) DropdownMenuItem(value: c, child: Text(c))],
-              onChanged: (v) => setState(() => _commune = v),
+              onChanged: (v) => setState(() {
+                _commune = v;
+                _department = communeDepartment[v] ?? _department;
+              }),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: ValueKey(_department),
+              initialValue: _department,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Departamento', prefixIcon: Icon(Icons.map_outlined)),
+              items: [for (final d in haitiDepartments) DropdownMenuItem(value: d, child: Text(d))],
+              onChanged: (v) => setState(() => _department = v),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _language,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Idioma preferido', prefixIcon: Icon(Icons.language)),
+              items: [for (final e in languageNames.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+              onChanged: (v) => setState(() => _language = v ?? 'ht'),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
