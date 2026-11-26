@@ -49,6 +49,11 @@ export const ACTION_ES: Record<string, string> = {
   revoke_role: "Retiró un rol",
   answer_ticket: "Atendió un caso de soporte",
   update_api_project: "Cambió un proyecto API",
+  review_establishment: "Revisó un establecimiento de empresa",
+  review_org_document: "Revisó un documento de empresa",
+  set_subscription: "Cambió un plan",
+  create_invoice: "Emitió una factura",
+  invoice_status: "Cambió el estado de una factura",
 };
 
 export default function Dashboard() {

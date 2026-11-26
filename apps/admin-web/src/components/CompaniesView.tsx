@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRoles } from "@/components/AuthGate";
 import { supabase } from "@/lib/supabase";
+import { DocumentsSection, EstablishmentsSection } from "@/components/CompanyReviews";
 
 type Org = {
   id: string;
@@ -59,7 +60,7 @@ export default function CompaniesView() {
     }
     const args = fn === "review_organization" ? { p_org: id, p_decision: decision, p_reason: reason } : { p_claim: id, p_decision: decision, p_reason: reason };
     const { error } = await supabase.rpc(fn, args);
-    if (error) alert(error.message);
+    setError(error?.message ?? null);
     load();
   }
 
@@ -68,6 +69,7 @@ export default function CompaniesView() {
   return (
     <div className="page">
       <h2>Empresas</h2>
+      <p className="muted">Verificación de empresas, sus documentos y los establecimientos que registran.</p>
       {error && <p className="error">{error}</p>}
       <table className="table">
         <thead>
@@ -112,6 +114,9 @@ export default function CompaniesView() {
           ))}
         </tbody>
       </table>
+
+      <DocumentsSection />
+      <EstablishmentsSection />
 
       <h2>Reclamos de establecimientos</h2>
       <table className="table">

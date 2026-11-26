@@ -21,6 +21,9 @@ type Campaign = {
   mission_code: string | null;
   mission_status: string | null;
   approved_places: number;
+  request_type: string | null;
+  category: string | null;
+  desired_end: string | null;
   created_at: string;
   lat: number;
   lng: number;
@@ -34,6 +37,7 @@ export default function CampaignsView() {
   const [selected, setSelected] = useState<Campaign | null>(null);
   const [reward, setReward] = useState("0.25");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from("campaign_requests_view").select("*").order("created_at", { ascending: false });
@@ -57,8 +61,8 @@ export default function CampaignsView() {
       p_reason: reason,
       p_reward_usd: reward,
     });
-    if (error) alert(error.message);
-    else if (decision === "APPROVED") alert(`Se creó una misión en BORRADOR (${data}). Revísala y actívala en Misiones.`);
+    setError(error?.message ?? null);
+    setNotice(error ? null : decision === "APPROVED" ? `Se creó una misión en borrador (${data}). Revísala y actívala en Misiones.` : "Solicitud rechazada.");
     setSelected(null);
     load();
   }
@@ -70,8 +74,9 @@ export default function CampaignsView() {
   return (
     <div className="split">
       <section className="list">
-        <h2>Campañas solicitadas</h2>
+        <h2>Misiones solicitadas por empresas</h2>
         {error && <p className="error">{error}</p>}
+        {notice && <p className="ok small">{notice}</p>}
         {items.length === 0 && <p className="muted">Ninguna solicitud todavía.</p>}
         {items.map((c) => (
           <button key={c.id} className={`item ${selected?.id === c.id ? "sel" : ""}`} onClick={() => setSelected(c)}>
@@ -80,7 +85,7 @@ export default function CampaignsView() {
               <span className={`tag s-${c.status === "PENDING" ? "SUBMITTED" : c.status}`}>{ES[c.status]}</span>
             </div>
             <div className="muted small">
-              {c.org_name} · {c.commune ?? "—"} · {c.target_places} lugares
+              {c.org_name} · {c.request_type === "VERIFY" ? "Verificar" : "Registrar"} · {c.commune ?? "—"} · {c.target_places} lugares
             </div>
           </button>
         ))}
@@ -94,6 +99,8 @@ export default function CampaignsView() {
             <Map center={{ lat: selected.lat, lng: selected.lng }} zoom={14} circle={{ lat: selected.lat, lng: selected.lng, radius: selected.radius_m }} points={[{ lat: selected.lat, lng: selected.lng }]} />
             <table className="facts">
               <tbody>
+                <tr><td>Tipo</td><td>{selected.request_type === "VERIFY" ? "Verificar ubicaciones existentes" : "Registrar lugares nuevos"}{selected.category && ` · ${selected.category}`}</td></tr>
+                <tr><td>Fecha deseada de fin</td><td>{selected.desired_end ?? "—"}</td></tr>
                 <tr><td>Comuna</td><td>{selected.commune ?? "—"}</td></tr>
                 <tr><td>Radio</td><td>{selected.radius_m} m</td></tr>
                 <tr><td>Lugares pedidos</td><td>{selected.target_places}</td></tr>
