@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/evidence_upload.dart';
 import '../../core/panel.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
@@ -62,13 +62,13 @@ class _CompanyVerificationScreenState extends State<CompanyVerificationScreen> {
     );
     if (source == null) return;
     final picked = await ImagePicker().pickImage(source: source, maxWidth: 2000, imageQuality: 75);
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
     setState(() => _uploading = true);
     try {
       await _repo.uploadDocument(_org['id'] as String, type, File(picked.path), picked.name);
       if (mounted) snack(context, 'Documento enviado.');
       await _reload();
-    } on PostgrestException catch (e) {
+    } on InvalidEvidence catch (e) {
       if (mounted) snack(context, e.message);
     } catch (_) {
       if (mounted) snack(context, 'No se pudo subir el documento. Revisa tu conexión.');

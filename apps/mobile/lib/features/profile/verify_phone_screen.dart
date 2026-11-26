@@ -11,7 +11,7 @@ import '../../core/ui.dart';
 
 /// Verifica por SMS el número MonCash antes de retirar. Es el único momento en que se pide un código.
 /// Si es el mismo número de la cuenta se envía un código de inicio de sesión; si es otro, se cambia el
-/// número de la cuenta con su propio código. Después el servidor registra la verificación.
+/// número de la cuenta con su propio código. La función del servidor verifica el código y registra la prueba.
 class VerifyPhoneScreen extends StatefulWidget {
   const VerifyPhoneScreen({super.key});
 
@@ -22,8 +22,8 @@ class VerifyPhoneScreen extends StatefulWidget {
 class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
   final _phone = TextEditingController();
   final _code = TextEditingController();
+  late final String? _ownerId;
   String? _sentTo;
-  bool _sameAsAccount = false;
   bool _busy = false;
   String? _error;
   Timer? _timer;
@@ -32,7 +32,9 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
   @override
   void initState() {
     super.initState();
-    final p = Supabase.instance.client.auth.currentUser?.phone ?? '';
+    final user = Supabase.instance.client.auth.currentUser;
+    _ownerId = user?.id;
+    final p = user?.phone ?? '';
     final d = p.replaceAll(RegExp(r'\D'), '');
     if (d.length == 11 && d.startsWith('509')) _phone.text = d.substring(3);
   }
@@ -51,6 +53,10 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
   }
 
   Future<void> _send() async {
+    if (_busy) return;
+    final auth = Supabase.instance.client.auth;
+    final session = auth.currentSession;
+    if (session == null || session.user.id != _ownerId) return;
     final phone = normalizeHaitiPhone(_phone.text);
     if (phone == null) return setState(() => _error = 'Escribe un número haitiano de 8 dígitos.');
     setState(() {
@@ -58,52 +64,66 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
       _error = null;
     });
     try {
-      final auth = Supabase.instance.client.auth;
-      final same = phone == _accountPhone && auth.currentUser?.phoneConfirmedAt != null;
-      if (same) {
+      final refreshedUser = (await auth.getUser(session.accessToken)).user;
+      if (!mounted || refreshedUser?.id != _ownerId || auth.currentUser?.id != _ownerId) return;
+      if (normalizeHaitiPhone(refreshedUser?.phone ?? '') == phone) {
         await auth.signInWithOtp(phone: phone, shouldCreateUser: false);
       } else {
-        await auth.updateUser(UserAttributes(phone: phone));
+        final changed = await auth.updateUser(UserAttributes(phone: phone));
+        if (!mounted || changed.user?.id != _ownerId || auth.currentUser?.id != _ownerId) return;
+        // Con autoconfirmación, el cambio actualiza el número sin enviar un código.
+        if (normalizeHaitiPhone(changed.user?.phone ?? '') == phone) {
+          await auth.signInWithOtp(phone: phone, shouldCreateUser: false);
+        }
       }
-      setState(() {
-        _sentTo = phone;
-        _sameAsAccount = same;
-      });
+      if (!mounted || auth.currentUser?.id != _ownerId) return;
+      setState(() => _sentTo = phone);
       _timer?.cancel();
       _seconds = 60;
       _timer = Timer.periodic(const Duration(seconds: 1), (t) {
         if (_seconds <= 1) t.cancel();
         if (mounted) setState(() => _seconds--);
       });
-    } on AuthException catch (e) {
-      setState(() => _error = e.message);
+    } on AuthException {
+      if (mounted) setState(() => _error = 'No se pudo enviar el código. Inténtalo de nuevo.');
     } catch (_) {
-      setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
+      if (mounted) setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _verify() async {
+    final db = Supabase.instance.client;
+    final session = db.auth.currentSession;
+    final phone = _sentTo;
+    if (_busy || phone == null || session == null || session.user.id != _ownerId) return;
     if (_code.text.length != 6) return setState(() => _error = 'Escribe los 6 dígitos del código.');
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final db = Supabase.instance.client;
-      await db.auth.verifyOTP(
-          type: _sameAsAccount ? OtpType.sms : OtpType.phoneChange, phone: _sentTo!, token: _code.text);
-      await db.rpc('confirm_moncash_phone');
-      if (!mounted) return;
+      final response = await db.functions.invoke(
+        'verify-moncash',
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
+        body: {'phone': phone, 'code': _code.text},
+      );
+      final data = response.data;
+      if (data is! Map || data['verified'] != true) throw const FormatException();
+      if (!mounted || db.auth.currentUser?.id != _ownerId) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Número MonCash verificado.')));
       Navigator.pop(context, true);
-    } on AuthException {
-      setState(() => _error = 'Código incorrecto o vencido.');
-    } on PostgrestException catch (e) {
-      setState(() => _error = e.message);
+    } on FunctionException catch (error) {
+      if (mounted) {
+        setState(() => _error = switch (error.status) {
+              400 || 422 => 'Código incorrecto o vencido.',
+              429 => 'Demasiados intentos. Espera antes de volver a intentarlo.',
+              _ => 'No se pudo verificar el número. Inténtalo de nuevo.',
+            });
+      }
     } catch (_) {
-      setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
+      if (mounted) setState(() => _error = 'No se pudo verificar el número. Inténtalo de nuevo.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

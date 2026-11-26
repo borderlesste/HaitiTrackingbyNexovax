@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/evidence_upload.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../missions/mission.dart';
@@ -51,7 +52,16 @@ class _CorrectContributionScreenState extends State<CorrectContributionScreen> {
 
   Future<void> _pickPhoto(ImageSource source) async {
     final picked = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 70);
-    if (picked != null) setState(() => _newPhoto = File(picked.path));
+    if (picked == null || !mounted) return;
+    final photo = File(picked.path);
+    try {
+      await inspectEvidence(photo);
+      if (mounted) setState(() => _newPhoto = photo);
+    } on InvalidEvidence catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } on FileSystemException {
+      if (mounted) setState(() => _error = 'No se pudo leer la imagen.');
+    }
   }
 
   Future<void> _recaptureGps() async {
@@ -77,12 +87,16 @@ class _CorrectContributionScreenState extends State<CorrectContributionScreen> {
     });
     final db = Supabase.instance.client;
     try {
+      final userId = db.auth.currentUser!.id;
       List<String>? photos;
-      if (_newPhoto != null) {
-        final path = '${db.auth.currentUser!.id}/${c['id']}_${const Uuid().v4().substring(0, 8)}.jpg';
-        await db.storage.from('evidence').upload(path, _newPhoto!, fileOptions: const FileOptions(contentType: 'image/jpeg'));
+      final newPhoto = _newPhoto;
+      if (newPhoto != null) {
+        final type = await inspectEvidence(newPhoto);
+        final path = '$userId/${c['id']}_${const Uuid().v4().substring(0, 8)}.${type.extension}';
+        await db.storage.from('evidence').upload(path, newPhoto, fileOptions: FileOptions(contentType: type.mimeType));
         photos = [path];
       }
+      if (!mounted || db.auth.currentUser?.id != userId) return;
       final p = _newPosition;
       await db.rpc('resubmit_contribution', params: {
         'p_id': c['id'],
@@ -101,12 +115,14 @@ class _CorrectContributionScreenState extends State<CorrectContributionScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Aporte corregido y enviado a revisión.')));
       Navigator.pop(context, true);
-    } on PostgrestException catch (e) {
-      setState(() => _error = e.message);
-    } on StorageException catch (e) {
-      setState(() => _error = 'No se pudo subir la foto: ${e.message}');
+    } on PostgrestException {
+      if (mounted) setState(() => _error = 'El servidor rechazó la corrección.');
+    } on InvalidEvidence catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } on StorageException {
+      if (mounted) setState(() => _error = 'No se pudo subir la foto.');
     } catch (_) {
-      setState(() => _error = 'Sin conexión. Para corregir un aporte necesitas internet.');
+      if (mounted) setState(() => _error = 'Sin conexión. Para corregir un aporte necesitas internet.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

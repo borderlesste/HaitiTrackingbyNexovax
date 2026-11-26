@@ -121,11 +121,15 @@ class _BasicDataStepState extends State<_BasicDataStep> {
         channel: OtpChannel.sms,
         data: {'full_name': '$first $last', 'first_name': first, 'last_name': last},
       );
-      widget.onSent(phone, res.session != null);
+      if (mounted) widget.onSent(phone, res.session != null);
     } on AuthException catch (e) {
-      setState(() => _error = e.message.contains('already') ? 'Ese número ya tiene una cuenta. Inicia sesión.' : e.message);
+      if (mounted) {
+        setState(() => _error = e.code == 'weak_password'
+            ? 'Elige una contraseña más segura.'
+            : 'No se pudo crear la cuenta. Revisa tus datos o usa la recuperación de contraseña.');
+      }
     } catch (_) {
-      setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
+      if (mounted) setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

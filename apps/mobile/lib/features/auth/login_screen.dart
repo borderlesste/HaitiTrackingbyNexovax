@@ -66,10 +66,12 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         await auth.signInWithPassword(phone: normalizeHaitiPhone(_id.text)!, password: _password.text);
       }
-    } on AuthException catch (e) {
-      setState(() => _error = e.message.toLowerCase().contains('invalid') ? 'Datos de acceso incorrectos.' : e.message);
+    } on AuthRetryableFetchException {
+      if (mounted) setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
+    } on AuthException {
+      if (mounted) setState(() => _error = 'Datos de acceso incorrectos.');
     } catch (_) {
-      setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
+      if (mounted) setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

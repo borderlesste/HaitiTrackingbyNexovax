@@ -185,7 +185,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           child: Column(children: [
             SettingRow(icon: Icons.verified_user_outlined, title: 'Verificación empresarial', subtitle: 'Documentos y estado', onTap: widget.onOpenVerification),
             SettingRow(icon: Icons.workspace_premium_outlined, title: 'Planes y facturación', onTap: widget.onOpenBilling),
-            SettingRow(icon: Icons.support_agent, title: 'Ayuda y soporte', onTap: () => showSupportSheet(context, audience: 'Empresa ${o['name']}')),
+            SettingRow(icon: Icons.support_agent, title: 'Ayuda y soporte', onTap: () => showSupportSheet(context, audience: 'Empresa ${o['name']}', category: 'COMPANY')),
             SettingRow(icon: Icons.swap_horiz, title: 'Cambiar de perfil', subtitle: 'Colaborador, Empresa o Desarrollador', onTap: () => showProfileSwitcher(context)),
             SettingRow(icon: Icons.logout, title: 'Cerrar sesión', color: HtColors.red, onTap: () => Supabase.instance.client.auth.signOut(), last: true),
           ]),

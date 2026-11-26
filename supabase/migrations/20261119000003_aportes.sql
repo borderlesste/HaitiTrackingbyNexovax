@@ -1,5 +1,7 @@
 -- Fase 3: aportes. La app necesita el radio de la misión y duplicados que incluyan aportes en revisión.
 
+create extension if not exists pg_trgm with schema extensions;
+
 drop function if exists public.missions_nearby(double precision, double precision, double precision);
 create function public.missions_nearby(lat double precision, lng double precision, radius_km double precision default 25)
 returns table (

@@ -162,7 +162,7 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
           padding: EdgeInsets.zero,
           child: Column(children: [
             SettingRow(icon: Icons.workspace_premium_outlined, title: 'Planes y facturación', onTap: widget.onBilling),
-            SettingRow(icon: Icons.support_agent, title: 'Ayuda y soporte', onTap: () => showSupportSheet(context, audience: 'Desarrollador')),
+            SettingRow(icon: Icons.support_agent, title: 'Ayuda y soporte', onTap: () => showSupportSheet(context, audience: 'Desarrollador', category: 'API')),
             SettingRow(icon: Icons.swap_horiz, title: 'Cambiar de perfil', subtitle: 'Colaborador, Empresa o Desarrollador', onTap: () => showProfileSwitcher(context)),
             SettingRow(icon: Icons.logout, title: 'Cerrar sesión', color: HtColors.red, onTap: () => Supabase.instance.client.auth.signOut(), last: true),
           ]),

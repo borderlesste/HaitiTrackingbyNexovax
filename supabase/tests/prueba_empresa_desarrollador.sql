@@ -30,7 +30,7 @@ begin
   end;
 
   -- Admin verifica
-  perform set_config('request.jwt.claims', json_build_object('sub', adm, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', adm, 'role', 'authenticated', 'aal', 'aal2')::text, true);
   perform public.review_organization(org, 'APPROVED');
 
   perform set_config('request.jwt.claims', json_build_object('sub', emp, 'role', 'authenticated')::text, true);
@@ -41,9 +41,9 @@ begin
   select count(*) into n from public.campaign_requests_view where org_id = org;
   r := r || ' | 4 reclamo + campaña creados, campaña visible=' || n;
 
-  perform set_config('request.jwt.claims', json_build_object('sub', adm, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', adm, 'role', 'authenticated', 'aal', 'aal2')::text, true);
   mis := public.review_campaign(cmp, 'APPROVED');
-  select count(*) into n from public.missions where id = mis and status = 'DRAFT' and max_participants = 20 and budget_authorized_usd = 5.00;
+  select count(*) into n from public.missions_admin where id = mis and status = 'DRAFT' and max_participants = 20 and budget_authorized_usd = 5.00;
   r := r || ' | 5 campaña aprobada -> misión borrador=' || n;
 
   -- Desarrollador

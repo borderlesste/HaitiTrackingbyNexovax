@@ -10,6 +10,20 @@ import '../../core/theme.dart';
 import '../../core/ui.dart';
 import 'login_screen.dart';
 
+Future<void> requestPasswordRecovery(GoTrueClient auth, String recipient, {required bool byPhone}) async {
+  try {
+    if (byPhone) {
+      await auth.signInWithOtp(phone: recipient, shouldCreateUser: false);
+    } else {
+      await auth.resetPasswordForEmail(recipient, redirectTo: authRedirectUrl);
+    }
+  } on AuthRetryableFetchException catch (e) {
+    if (e.statusCode == null) rethrow;
+  } on AuthException {
+    // La respuesta visible debe ser la misma aunque Auth no encuentre una cuenta.
+  }
+}
+
 /// Recuperar la contraseña: código SMS al teléfono de la cuenta o enlace al correo.
 class RecoverPasswordScreen extends StatefulWidget {
   const RecoverPasswordScreen({super.key, this.initial = ''});
@@ -55,29 +69,18 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
 
   Future<void> _send() async {
     if (!_form.currentState!.validate()) return;
+    final byPhone = _byPhone;
+    final recipient = byPhone ? normalizeHaitiPhone(_id.text)! : _id.text.trim();
     setState(() {
       _busy = true;
       _error = null;
     });
     final auth = Supabase.instance.client.auth;
     try {
-      if (_byPhone) {
-        final phone = normalizeHaitiPhone(_id.text)!;
-        await auth.signInWithOtp(phone: phone, shouldCreateUser: false);
-        setState(() => _sentTo = phone);
-      } else {
-        await auth.resetPasswordForEmail(_id.text.trim(), redirectTo: authRedirectUrl);
-        setState(() => _sentTo = _id.text.trim());
-      }
-    } on AuthException catch (e) {
-      final m = e.message.toLowerCase();
-      setState(() => _error = m.contains('not found') || m.contains('signups not allowed')
-          ? 'No encontramos una cuenta con ese ${_byPhone ? 'teléfono' : 'correo'}.'
-          : m.contains('rate') || m.contains('seconds')
-              ? 'Espera un momento antes de pedir otro código.'
-              : e.message);
+      await requestPasswordRecovery(auth, recipient, byPhone: byPhone);
+      if (mounted) setState(() => _sentTo = recipient);
     } catch (_) {
-      setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
+      if (mounted) setState(() => _error = 'No se pudo solicitar la recuperación. Inténtalo de nuevo.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -85,6 +88,9 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
 
   Future<void> _verifyAndSave() async {
     if (!_form.currentState!.validate()) return;
+    final phone = _sentTo!;
+    final code = _code.text.trim();
+    final password = _password.text;
     setState(() {
       _busy = true;
       _error = null;
@@ -94,16 +100,22 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
     final nav = Navigator.of(context);
     try {
       await ProfileContext.set(AppProfile.collaborator);
-      await auth.verifyOTP(type: OtpType.sms, phone: _sentTo!, token: _code.text.trim());
-      await auth.updateUser(UserAttributes(password: _password.text));
+      final verified = await auth.verifyOTP(type: OtpType.sms, phone: phone, token: code);
+      if (verified.session == null || auth.currentUser?.id != verified.session!.user.id) {
+        throw const AuthException('La sesión de recuperación no está disponible.');
+      }
+      await auth.updateUser(UserAttributes(password: password));
+      if (!mounted) return;
       messenger.showSnackBar(const SnackBar(content: Text('Listo. Tu contraseña fue cambiada.')));
       nav.popUntil((r) => r.isFirst);
     } on AuthException catch (e) {
-      final m = e.message.toLowerCase();
       if (mounted) {
-        setState(() => _error = m.contains('expired') || m.contains('invalid') || m.contains('token')
-            ? 'El código no es correcto o ya venció.'
-            : e.message);
+        setState(() => _error = switch (e.code) {
+          'otp_expired' => 'El código no es correcto o ya venció.',
+          'weak_password' => 'Elige una contraseña más segura.',
+          'same_password' => 'Elige una contraseña distinta a la anterior.',
+          _ => 'No se pudo cambiar la contraseña. Inténtalo de nuevo.',
+        });
       }
     } catch (_) {
       if (mounted) setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
@@ -140,7 +152,7 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                   ButtonSegment(value: false, icon: Icon(Icons.mail_outline), label: Text('Por correo')),
                 ],
                 selected: {_byPhone},
-                onSelectionChanged: (v) => setState(() {
+                onSelectionChanged: _busy ? null : (v) => setState(() {
                   _byPhone = v.first;
                   _id.clear();
                   _error = null;
@@ -171,7 +183,8 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
             ] else if (_byPhone) ...[
               HtCard(
                 color: HtColors.blueSoft,
-                child: Text('Enviamos un código a ${formatHaitiPhone(_sentTo)}.', style: const TextStyle(fontSize: 16)),
+                child: Text('Si hay una cuenta asociada a ${formatHaitiPhone(_sentTo)}, recibirás un código por SMS.',
+                    style: const TextStyle(fontSize: 16)),
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -207,7 +220,7 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
             ] else ...[
               const Center(child: Icon(Icons.mark_email_read_outlined, size: 72, color: HtColors.green)),
               const SizedBox(height: 10),
-              Text('Revisa tu correo $_sentTo y toca el enlace para crear tu contraseña nueva.',
+              Text('Si hay una cuenta asociada a $_sentTo, recibirás un enlace para crear tu contraseña nueva.',
                   textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, height: 1.35)),
               const SizedBox(height: 10),
               TextButton(onPressed: () => setState(() => _sentTo = null), child: const Text('No me llegó, enviar otra vez')),

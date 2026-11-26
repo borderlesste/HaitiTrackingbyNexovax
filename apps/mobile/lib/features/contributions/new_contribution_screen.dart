@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/evidence_upload.dart';
 import '../../core/theme.dart';
 import '../missions/mission.dart';
 import 'contribution_draft.dart';
@@ -28,6 +29,7 @@ class NewContributionScreen extends StatefulWidget {
 
 class _NewContributionScreenState extends State<NewContributionScreen> {
   final _service = ContributionService();
+  final _userId = Supabase.instance.client.auth.currentUser?.id;
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _reference = TextEditingController();
@@ -101,14 +103,26 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
 
   Future<void> _pickPhoto(ImageSource source) async {
     final picked = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 70);
-    if (picked == null) return;
-    // Copia en la carpeta de la app para que el borrador sobreviva sin conexión.
-    final dir = await getApplicationDocumentsDirectory();
-    final saved = await File(picked.path).copy('${dir.path}/aporte_$_draftId.jpg');
-    setState(() => _photo = saved);
+    if (picked == null || !mounted) return;
+    final photo = File(picked.path);
+    try {
+      final type = await inspectEvidence(photo);
+      // Copia en la carpeta de la app para que el borrador sobreviva sin conexión.
+      final dir = await getApplicationDocumentsDirectory();
+      final saved = await photo.copy('${dir.path}/aporte_$_draftId.${type.extension}');
+      if (mounted) setState(() => _photo = saved);
+    } on InvalidEvidence catch (e) {
+      if (mounted) _snack(e.message);
+    } on FileSystemException {
+      if (mounted) _snack('No se pudo guardar la imagen.');
+    }
   }
 
   Future<void> _review() async {
+    final userId = _userId;
+    if (userId == null || Supabase.instance.client.auth.currentUser?.id != userId) {
+      return _snack('Inicia sesión en tu cuenta para enviar el aporte.');
+    }
     if (!_formKey.currentState!.validate()) return;
     if (_photo == null) return _snack('Agrega una foto del establecimiento.');
     if (_position == null) return _snack('Primero confirma tu ubicación GPS.');
@@ -137,6 +151,7 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
       // 3) Enviar o guardar sin conexión.
       final draft = ContributionDraft(
         id: _draftId,
+        userId: userId,
         missionId: widget.mission.id,
         missionTitle: widget.mission.title,
         name: _name.text.trim(),
@@ -159,8 +174,12 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
           offline: result == SubmitResult.savedOffline,
         ),
       ));
-    } on PostgrestException catch (e) {
-      _snack('El servidor rechazó el aporte: ${e.message}');
+    } on PostgrestException {
+      if (mounted) _snack('El servidor rechazó el aporte.');
+    } on InvalidEvidence catch (e) {
+      if (mounted) _snack(e.message);
+    } on StateError {
+      if (mounted) _snack('No se pudo guardar el aporte en el teléfono.');
     } finally {
       if (mounted) setState(() => _sending = false);
     }
