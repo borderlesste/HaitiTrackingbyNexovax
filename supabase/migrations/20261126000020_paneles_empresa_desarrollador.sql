@@ -231,7 +231,7 @@ select cr.id, cr.org_id, o.name as org_name, cr.title, cr.description, cr.commun
        m.code as mission_code, m.status as mission_status,
        (select count(*) from public.mission_contributions mc where mc.mission_id = cr.mission_id and mc.status = 'APPROVED') as approved_places,
        cr.request_type, cr.category, cr.desired_end,
-       (select count(*) from public.mission_contributions mc where mc.mission_id = cr.mission_id and mc.status = 'PENDING') as pending_places
+       (select count(*) from public.mission_contributions mc where mc.mission_id = cr.mission_id and mc.status in ('SUBMITTED', 'AUTO_CHECKED', 'HUMAN_REVIEW')) as pending_places
 from public.campaign_requests cr join public.organizations o on o.id = cr.org_id left join public.missions m on m.id = cr.mission_id;
 grant select on public.campaign_requests_view to authenticated;
 
