@@ -4,17 +4,34 @@ import { createClient } from "@supabase/supabase-js";
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+  { auth: { detectSessionInUrl: false } },
 );
 
 export type Role = "admin" | "moderator";
 
-export async function currentRoles(): Promise<Role[]> {
+export type PanelAccess =
+  | { status: "denied" | "verify" | "enroll" | "error" }
+  | { status: "allowed"; roles: Role[] };
+
+export async function getPanelAccess(token: string): Promise<PanelAccess> {
+  const { data: assurance, error: assuranceError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel(token);
+  if (assuranceError || !assurance?.currentLevel) return { status: "error" };
+  const authorization = `Bearer ${token}`;
+
+  if (assurance.currentLevel !== "aal2") {
+    const { data, error } = await supabase.rpc("is_panel_staff").setHeader("Authorization", authorization);
+    if (error) return { status: "error" };
+    if (data !== true) return { status: "denied" };
+    return { status: assurance.nextLevel === "aal2" ? "verify" : "enroll" };
+  }
+
   const roles: Role[] = [];
-  for (const r of ["admin", "moderator"] as Role[]) {
-    const { data } = await supabase.rpc("has_role", { r });
+  for (const r of ["admin", "moderator"] as const) {
+    const { data, error } = await supabase.rpc("has_role", { r }).setHeader("Authorization", authorization);
+    if (error) return { status: "error" };
     if (data === true) roles.push(r);
   }
-  return roles;
+  return roles.length ? { status: "allowed", roles } : { status: "denied" };
 }
 
 export function usd(v: number | string | null | undefined): string {
@@ -48,16 +65,21 @@ export async function saveSetting(key: string, value: unknown): Promise<string |
   return error?.message ?? null;
 }
 
+export function toCsv(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) return "";
+  const cols = Object.keys(rows[0]);
+  const esc = (v: unknown) => {
+    let s = v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+    if (typeof v !== "number" && (/^[\t\r\n]/.test(s) || /^\s*[=+\-@＝＋－＠]/u.test(s))) s = `'${s}`;
+    return /[",\r\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [cols.map(esc).join(","), ...rows.map((r) => cols.map((c) => esc(r[c])).join(","))].join("\n");
+}
+
 /** Descarga filas como CSV (conciliación, informes). */
 export function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   if (rows.length === 0) return;
-  const cols = Object.keys(rows[0]);
-  const esc = (v: unknown) => {
-    const s = v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
-    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  const csv = [cols.join(","), ...rows.map((r) => cols.map((c) => esc(r[c])).join(","))].join("\n");
-  const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+  const url = URL.createObjectURL(new Blob(["\ufeff" + toCsv(rows)], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;

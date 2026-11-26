@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/account.dart';
+import '../../core/evidence_upload.dart';
 import '../../core/panel.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
@@ -76,7 +77,16 @@ class _EstablishmentFormScreenState extends State<EstablishmentFormScreen> {
   Future<void> _addPhoto(ImageSource source) async {
     if (_remotePhotos.length + _newPhotos.length >= 5) return snack(context, 'Máximo 5 fotos.');
     final picked = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 70);
-    if (picked != null) setState(() => _newPhotos.add(File(picked.path)));
+    if (picked == null || !mounted) return;
+    final photo = File(picked.path);
+    try {
+      await inspectEvidence(photo);
+      if (mounted) setState(() => _newPhotos.add(photo));
+    } on InvalidEvidence catch (e) {
+      if (mounted) snack(context, e.message);
+    } on FileSystemException {
+      if (mounted) snack(context, 'No se pudo leer la imagen.');
+    }
   }
 
   Future<void> _save() async {
@@ -89,9 +99,12 @@ class _EstablishmentFormScreenState extends State<EstablishmentFormScreen> {
     });
     try {
       final uploaded = <String>[];
+      final userId = _repo.uid;
       for (final f in _newPhotos) {
+        if (!mounted || _repo.uid != userId) return;
         uploaded.add(await _repo.uploadPhoto(f));
       }
+      if (!mounted || _repo.uid != userId) return;
       await _repo.saveEstablishment(
         id: _e?['id'] as String?,
         orgId: widget.orgId,
@@ -109,10 +122,12 @@ class _EstablishmentFormScreenState extends State<EstablishmentFormScreen> {
       );
       if (!mounted) return;
       await Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => _SavedScreen(name: _name.text.trim(), editing: _e != null)));
-    } on PostgrestException catch (e) {
-      setState(() => _error = e.message);
+    } on InvalidEvidence catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } on PostgrestException {
+      if (mounted) setState(() => _error = 'El servidor rechazó el establecimiento.');
     } catch (_) {
-      setState(() => _error = 'No se pudo guardar. Revisa tu conexión.');
+      if (mounted) setState(() => _error = 'No se pudo guardar. Revisa tu conexión.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

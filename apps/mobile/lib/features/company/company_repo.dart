@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/evidence_upload.dart';
+
 /// Acceso a datos de la experiencia Empresa. Los permisos los comprueba siempre el servidor (RLS y funciones).
 class CompanyRepo {
   SupabaseClient get _db => Supabase.instance.client;
@@ -51,15 +53,17 @@ class CompanyRepo {
       List.from(await _db.from('organization_documents').select().eq('org_id', orgId).order('created_at', ascending: false));
 
   Future<void> uploadDocument(String orgId, String docType, File file, String fileName) async {
-    final ext = fileName.contains('.') ? fileName.split('.').last.toLowerCase() : 'jpg';
-    final path = '$uid/org-docs/${const Uuid().v4()}.$ext';
+    final userId = uid;
+    final type = await inspectEvidence(file, allowPdf: true);
+    final path = '$userId/org-docs/${const Uuid().v4()}.${type.extension}';
     await _db.storage.from('evidence').upload(path, file,
-        fileOptions: FileOptions(contentType: ext == 'pdf' ? 'application/pdf' : 'image/jpeg'));
+        fileOptions: FileOptions(contentType: type.mimeType));
     await _db.from('organization_documents').insert({
       'org_id': orgId,
       'doc_type': docType,
       'storage_path': path,
       'file_name': fileName,
+      'uploaded_by': userId,
     });
   }
 
@@ -71,8 +75,10 @@ class CompanyRepo {
       List.from(await _db.from('place_claims_view').select().eq('org_id', orgId).order('created_at', ascending: false));
 
   Future<String> uploadPhoto(File file) async {
-    final path = '$uid/establishments/${const Uuid().v4()}.jpg';
-    await _db.storage.from('evidence').upload(path, file, fileOptions: const FileOptions(contentType: 'image/jpeg'));
+    final userId = uid;
+    final type = await inspectEvidence(file);
+    final path = '$userId/establishments/${const Uuid().v4()}.${type.extension}';
+    await _db.storage.from('evidence').upload(path, file, fileOptions: FileOptions(contentType: type.mimeType));
     return path;
   }
 

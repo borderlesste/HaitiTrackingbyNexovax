@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Banknote,
@@ -26,59 +26,50 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { currentRoles, supabase, type Role } from "@/lib/supabase";
+import { getPanelAccess, supabase, type PanelAccess, type Role } from "@/lib/supabase";
 
 const RolesContext = createContext<Role[]>([]);
 export const useRoles = () => useContext(RolesContext);
 
-type Mfa = "checking" | "ok" | "verify" | "enroll";
-
 export default function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [rolesFor, setRolesFor] = useState<{ uid: string; roles: Role[] } | null>(null);
   const [ready, setReady] = useState(false);
-  const [mfa, setMfa] = useState<Mfa>("checking");
+  const [accessFor, setAccessFor] = useState<{ token: string; access: PanelAccess } | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
       setReady(true);
     });
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => data.subscription.unsubscribe();
   }, []);
 
-  const uid = session?.user.id;
-  useEffect(() => {
-    if (!uid) return;
-    currentRoles().then((roles) => setRolesFor({ uid, roles }));
-  }, [uid]);
-  const roles = rolesFor && rolesFor.uid === uid ? rolesFor.roles : null;
-
-  // Acceso reforzado: el equipo entra con contraseña + código de una app autenticadora (TOTP).
-  const checkMfa = useCallback(async () => {
-    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (data?.currentLevel === "aal2") return setMfa("ok");
-    if (data?.nextLevel === "aal2") return setMfa("verify");
-    setMfa("enroll");
-  }, []);
   const token = session?.access_token;
   useEffect(() => {
-    if (token && roles && roles.length > 0) Promise.resolve().then(checkMfa);
-  }, [token, roles, checkMfa]);
+    if (!token) return;
+    let active = true;
+    void getPanelAccess(token)
+      .catch((): PanelAccess => ({ status: "error" }))
+      .then((access) => {
+        if (active) setAccessFor({ token, access });
+      });
+    return () => { active = false; };
+  }, [token]);
 
   if (!ready) return <div className="center muted">Cargando…</div>;
   if (!session) return <Login />;
-  if (roles === null) return <div className="center muted">Comprobando permisos…</div>;
-  if (roles.length === 0) {
+  const access = accessFor?.token === token ? accessFor?.access : undefined;
+  if (!access) return <div className="center muted">Comprobando permisos…</div>;
+  if (access.status === "verify") return <MfaVerify />;
+  if (access.status === "enroll") return <MfaEnroll />;
+  if (access.status !== "allowed") {
     return (
       <div className="center login-bg">
         <div className="card narrow">
           <h2>Sin acceso</h2>
-          <p>
-            La cuenta <b>{session.user.email ?? session.user.phone}</b> no tiene rol de administrador ni de moderador.
-          </p>
-          <p className="muted small">ID de usuario: {session.user.id}</p>
+          <p>{access.status === "error"
+            ? "No pudimos comprobar tus permisos. Recarga la página o inicia sesión de nuevo."
+            : "La cuenta no tiene rol de administrador ni de moderador."}</p>
           <button className="btn" onClick={() => supabase.auth.signOut()}>
             Cerrar sesión
           </button>
@@ -86,13 +77,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       </div>
     );
   }
-  if (mfa === "checking") return <div className="center muted">Comprobando seguridad…</div>;
-  if (mfa === "verify") return <MfaVerify onDone={checkMfa} />;
-  if (mfa === "enroll") return <MfaEnroll onDone={checkMfa} onSkip={() => setMfa("ok")} />;
-
   return (
-    <RolesContext.Provider value={roles}>
-      <Shell email={session.user.email ?? ""} roles={roles}>
+    <RolesContext.Provider value={access.roles}>
+      <Shell email={session.user.email ?? ""} roles={access.roles}>
         {children}
       </Shell>
     </RolesContext.Provider>
@@ -142,6 +129,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
 function Shell({ children, email, roles }: { children: ReactNode; email: string; roles: Role[] }) {
   const path = usePathname();
   const isAdmin = roles.includes("admin");
+  const routeRequiresAdmin = NAV.some(({ items }) => items.some((item) => item.adminOnly && item.href === path));
   const [open, setOpen] = useState(false);
   return (
     <div className="shell">
@@ -187,7 +175,9 @@ function Shell({ children, email, roles }: { children: ReactNode; email: string;
           </button>
           <b>HAITI TRACKING · Admin</b>
         </header>
-        <main className="content">{children}</main>
+        <main className="content">
+          {routeRequiresAdmin && !isAdmin ? <p>Esta sección requiere el rol de administrador.</p> : children}
+        </main>
       </div>
     </div>
   );
@@ -201,11 +191,17 @@ function Login() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message === "Invalid login credentials" ? "Correo o contraseña incorrectos." : error.message);
-    setBusy(false);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setError("No se pudo iniciar sesión. Verifica tus credenciales o inténtalo más tarde.");
+    } catch {
+      setError("No se pudo iniciar sesión. Verifica tus credenciales o inténtalo más tarde.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -232,7 +228,7 @@ function Login() {
   );
 }
 
-function MfaVerify({ onDone }: { onDone: () => void }) {
+function MfaVerify() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -250,7 +246,6 @@ function MfaVerify({ onDone }: { onDone: () => void }) {
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.trim() });
     setBusy(false);
     if (error) setError("Código incorrecto o caducado.");
-    else onDone();
   }
 
   return (
@@ -269,28 +264,32 @@ function MfaVerify({ onDone }: { onDone: () => void }) {
   );
 }
 
-function MfaEnroll({ onDone, onSkip }: { onDone: () => void; onSkip: () => void }) {
+function MfaEnroll() {
   const [factor, setFactor] = useState<{ id: string; qr: string; secret: string } | null>(null);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    (async () => {
+    let active = true;
+    void (async () => {
       // Limpia altas anteriores que no se terminaron de verificar.
-      const { data: list } = await supabase.auth.mfa.listFactors();
+      const { data: list, error: factorsError } = await supabase.auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
       for (const f of list?.all ?? []) {
-        if (f.status === "unverified") await supabase.auth.mfa.unenroll({ factorId: f.id });
+        if (!active) return;
+        if (f.status === "unverified" && f.factor_type === "totp" && f.friendly_name?.startsWith("Panel ")) {
+          await supabase.auth.mfa.unenroll({ factorId: f.id });
+        }
       }
+      if (!active) return;
       const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: `Panel ${new Date().toISOString()}` });
-      if (error || !data) {
-        setError(error?.message ?? "No se pudo iniciar el registro.");
-        setUnavailable(true);
-        return;
-      }
-      setFactor({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
-    })();
+      if (error || !data) throw error ?? new Error("No se pudo iniciar el registro.");
+      if (active) setFactor({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
+    })().catch(() => {
+      if (active) setError("No se pudo configurar el autenticador. Contacta con el equipo de administración.");
+    });
+    return () => { active = false; };
   }, []);
 
   async function submit(e: FormEvent) {
@@ -301,7 +300,6 @@ function MfaEnroll({ onDone, onSkip }: { onDone: () => void; onSkip: () => void 
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.trim() });
     setBusy(false);
     if (error) setError("Código incorrecto. Comprueba la hora del teléfono y vuelve a intentarlo.");
-    else onDone();
   }
 
   return (
@@ -324,18 +322,9 @@ function MfaEnroll({ onDone, onSkip }: { onDone: () => void; onSkip: () => void 
             <button className="btn primary" disabled={busy}>{busy ? "Verificando…" : "Activar y entrar"}</button>
           </>
         ) : (
-          !unavailable && <p className="muted">Preparando…</p>
+          !error && <p className="muted">Preparando…</p>
         )}
         {error && <p className="error">{error}</p>}
-        {unavailable && (
-          <>
-            <p className="small muted">
-              La verificación en dos pasos no está disponible en este proyecto de Supabase (Authentication → Multi-Factor → TOTP). Puedes entrar
-              igualmente, pero actívala cuanto antes.
-            </p>
-            <button type="button" className="btn" onClick={onSkip}>Entrar sin verificación</button>
-          </>
-        )}
         <button type="button" className="btn" onClick={() => supabase.auth.signOut()}>Cancelar</button>
       </form>
     </div>

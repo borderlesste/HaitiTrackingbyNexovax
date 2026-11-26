@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/evidence_upload.dart';
 import 'contribution_draft.dart';
 
 class DuplicateCandidate {
@@ -55,14 +56,16 @@ class ContributionService {
   Future<SubmitResult> submit(ContributionDraft d) async {
     try {
       await _send(d);
-      await store.remove(d.id);
+      await store.remove(d);
       return SubmitResult.sent;
-    } on PostgrestException catch (e) {
+    } on PostgrestException {
       // Errores de validación del servidor: no tiene sentido reintentar a ciegas.
-      d.lastError = e.message;
+      d.lastError = 'El servidor rechazó el aporte.';
       await store.save(d);
       rethrow;
-    } catch (e) {
+    } on InvalidEvidence {
+      rethrow;
+    } catch (_) {
       d.lastError = 'Sin conexión';
       await store.save(d);
       return SubmitResult.savedOffline;
@@ -71,14 +74,21 @@ class ContributionService {
 
   /// Reintenta todos los pendientes. Devuelve cuántos se enviaron.
   Future<int> syncPending() async {
+    final uid = _db.auth.currentUser?.id;
+    if (uid == null) return 0;
     var sent = 0;
-    for (final d in await store.all()) {
+    for (final d in await store.all(uid)) {
+      if (_db.auth.currentUser?.id != uid) break;
       try {
         await _send(d);
-        await store.remove(d.id);
+        await store.remove(d);
         sent++;
       } catch (e) {
-        d.lastError = e is PostgrestException ? e.message : 'Sin conexión';
+        d.lastError = switch (e) {
+          PostgrestException() => 'El servidor rechazó el aporte.',
+          InvalidEvidence(:final message) => message,
+          _ => 'Sin conexión',
+        };
         await store.save(d);
       }
     }
@@ -86,22 +96,28 @@ class ContributionService {
   }
 
   Future<void> _send(ContributionDraft d) async {
-    final uid = _db.auth.currentUser?.id;
-    if (uid == null) throw const AuthException('Sesión no iniciada');
+    final uid = d.userId;
+    final file = File(d.photoPath);
+    final type = await inspectEvidence(file);
+    if (_db.auth.currentUser?.id != uid) throw const AuthException('La sesión cambió');
 
-    final objectPath = '$uid/${d.id}.jpg';
+    // Antes todos los borradores usaban .jpg, incluso si contenían PNG.
+    final extension = d.photoPath.endsWith('.jpg') ? 'jpg' : type.extension;
+    final objectPath = '$uid/${d.id}.$extension';
     try {
-      await _db.storage.from('evidence').upload(objectPath, File(d.photoPath),
-          fileOptions: const FileOptions(contentType: 'image/jpeg'));
+      await _db.storage.from('evidence').upload(objectPath, file,
+          fileOptions: FileOptions(contentType: type.mimeType));
     } on StorageException catch (e) {
       // Si ya se subió en un intento anterior, seguimos.
       final already = e.statusCode == '409' || e.message.toLowerCase().contains('exists');
       if (!already) rethrow;
     }
 
+    if (_db.auth.currentUser?.id != uid) throw const AuthException('La sesión cambió');
     try {
       await _db.from('mission_contributions').insert({
         'idempotency_key': d.id,
+        'user_id': uid,
         'mission_id': d.missionId,
         'name': d.name,
         'category': d.category,
@@ -120,10 +136,13 @@ class ContributionService {
   }
 
   Future<List<Map<String, dynamic>>> myContributions() async {
+    final uid = _db.auth.currentUser?.id;
+    if (uid == null) return const [];
     final rows = await _db
         .from('mission_contributions')
         .select('id, name, category, status, review_reason, created_at, photo_paths, mission_id, address_reference, '
             'missions(title, commune, individual_reward_usd, completion_bonus_usd, required_approved_contributions)')
+        .eq('user_id', uid)
         .order('created_at', ascending: false)
         .limit(200);
     return List<Map<String, dynamic>>.from(rows);

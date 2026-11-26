@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import AuthGate from "@/components/AuthGate";
 import "./globals.css";
-
-// Todo el panel se renderiza en el cliente detrás del login; no hay contenido estático que validar.
-export const instant = false;
 
 export const metadata: Metadata = {
   title: "Haiti Tracking · Admin",
@@ -11,7 +9,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Next aplica el nonce de CSP a los scripts durante cada solicitud.
+  await connection();
   return (
     <html lang="es">
       <body>

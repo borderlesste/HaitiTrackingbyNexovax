@@ -140,7 +140,7 @@ export default function WithdrawalsView() {
                   <td className="mono">
                     {r.moncash_phone}
                     <div className="small">
-                      {r.phone_matches ? <span className="ok">✓ verificado por SMS</span> : <span className="error">⚠ no coincide con el número verificado</span>}
+                      {r.phone_matches ? <span className="ok">✓ verificado por SMS</span> : <span className="error">⚠ requiere verificación o conciliación</span>}
                     </div>
                   </td>
                   <td><span className={`tag s-${r.status}`}>{ES[r.status] ?? r.status}</span></td>
@@ -154,11 +154,11 @@ export default function WithdrawalsView() {
                   <td>
                     <div className="row gap">
                       {r.status === "REQUESTED" && (
-                        <button className="btn small primary" onClick={() => authorize(r)}><Play size={12} /> Autorizar</button>
+                        <button className="btn small primary" disabled={!r.phone_matches} onClick={() => authorize(r)}><Play size={12} /> Autorizar</button>
                       )}
                       {["REQUESTED", "PROCESSING"].includes(r.status) && (
                         <>
-                          <button className="btn small" onClick={() => setActing({ w: r, to: "COMPLETED" })}><CheckCircle2 size={12} /> Pagado</button>
+                          <button className="btn small" disabled={!r.phone_matches} onClick={() => setActing({ w: r, to: "COMPLETED" })}><CheckCircle2 size={12} /> Pagado</button>
                           <button className="btn small danger" onClick={() => setActing({ w: r, to: "REJECTED" })}><XCircle size={12} /></button>
                         </>
                       )}

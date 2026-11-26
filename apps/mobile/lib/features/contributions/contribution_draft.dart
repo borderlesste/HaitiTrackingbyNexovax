@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ContributionDraft {
   ContributionDraft({
     required this.id,
+    required this.userId,
     required this.missionId,
     required this.missionTitle,
     required this.name,
@@ -23,6 +24,7 @@ class ContributionDraft {
   });
 
   final String id;
+  final String userId;
   final String missionId;
   final String missionTitle;
   final String name;
@@ -39,6 +41,7 @@ class ContributionDraft {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'userId': userId,
         'missionId': missionId,
         'missionTitle': missionTitle,
         'name': name,
@@ -56,6 +59,7 @@ class ContributionDraft {
 
   factory ContributionDraft.fromJson(Map<String, dynamic> j) => ContributionDraft(
         id: j['id'] as String,
+        userId: j['userId'] as String,
         missionId: j['missionId'] as String,
         missionTitle: (j['missionTitle'] ?? '') as String,
         name: j['name'] as String,
@@ -74,26 +78,28 @@ class ContributionDraft {
 
 /// Aportes pendientes de enviar, guardados en el teléfono (para zonas sin conexión).
 class DraftStore {
-  static const _key = 'pending_contributions_v1';
+  // Los borradores v1 no guardaban su propietario y no se pueden reasignar.
+  String _prefix(String userId) => 'pending_contributions_v2:$userId:';
+  String _key(ContributionDraft draft) => '${_prefix(draft.userId)}${draft.id}';
 
-  Future<List<ContributionDraft>> all() async {
+  Future<List<ContributionDraft>> all(String userId) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList(_key) ?? const [];
-    return raw.map((s) => ContributionDraft.fromJson(jsonDecode(s) as Map<String, dynamic>)).toList();
+    final prefix = _prefix(userId);
+    return prefs.getKeys().where((key) => key.startsWith(prefix)).map((key) {
+      return ContributionDraft.fromJson(jsonDecode(prefs.getString(key)!) as Map<String, dynamic>);
+    }).where((draft) => draft.userId == userId).toList();
   }
 
   Future<void> save(ContributionDraft d) async {
-    final list = (await all()).where((x) => x.id != d.id).toList()..add(d);
-    await _write(list);
-  }
-
-  Future<void> remove(String id) async {
-    await _write((await all()).where((x) => x.id != id).toList());
-  }
-
-  Future<void> _write(List<ContributionDraft> list) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_key, list.map((d) => jsonEncode(d.toJson())).toList());
+    if (!await prefs.setString(_key(d), jsonEncode(d.toJson()))) {
+      throw StateError('No se pudo guardar el aporte en el teléfono.');
+    }
+  }
+
+  Future<void> remove(ContributionDraft d) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key(d));
   }
 }
 

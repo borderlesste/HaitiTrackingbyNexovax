@@ -195,7 +195,7 @@ class _CompanyDrawer extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.support_agent),
           title: const Text('Ayuda y soporte'),
-          onTap: () => tap(() => showSupportSheet(context, audience: 'Empresa ${org['name']}')),
+          onTap: () => tap(() => showSupportSheet(context, audience: 'Empresa ${org['name']}', category: 'COMPANY')),
         ),
         const Divider(),
         ListTile(

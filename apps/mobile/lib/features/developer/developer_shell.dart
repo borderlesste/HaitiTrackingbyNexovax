@@ -156,7 +156,7 @@ class _DeveloperDrawer extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.support_agent),
           title: const Text('Ayuda y soporte'),
-          onTap: () => tap(() => showSupportSheet(context, audience: 'Desarrollador')),
+          onTap: () => tap(() => showSupportSheet(context, audience: 'Desarrollador', category: 'API')),
         ),
         const Divider(),
         ListTile(

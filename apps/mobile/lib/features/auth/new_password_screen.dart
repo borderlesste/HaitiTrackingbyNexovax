@@ -31,9 +31,15 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
     });
     try {
       await Supabase.instance.client.auth.updateUser(UserAttributes(password: _password.text));
-      widget.onDone();
+      if (mounted) widget.onDone();
     } on AuthException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) {
+        setState(() => _error = switch (e.code) {
+          'weak_password' => 'Elige una contraseña más segura.',
+          'same_password' => 'Elige una contraseña distinta a la anterior.',
+          _ => 'No se pudo cambiar la contraseña. Solicita un nuevo enlace si el anterior venció.',
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

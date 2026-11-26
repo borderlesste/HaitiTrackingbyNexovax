@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme.dart';
 import '../../core/ui.dart';
@@ -33,7 +34,11 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
   }
 
   Future<void> _load() async {
-    final pending = await _service.store.all();
+    final auth = Supabase.instance.client.auth;
+    final userId = auth.currentUser?.id;
+    if (userId == null) return;
+    final pending = await _service.store.all(userId);
+    if (auth.currentUser?.id != userId) return;
     var offline = false;
     var sent = _sent;
     var photos = _photos;
@@ -43,7 +48,7 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
     } catch (_) {
       offline = true;
     }
-    if (!mounted) return;
+    if (!mounted || auth.currentUser?.id != userId) return;
     setState(() {
       _pending = pending;
       _sent = sent;

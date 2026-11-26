@@ -226,28 +226,37 @@ void snack(BuildContext context, String text) =>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
 /// Ayuda y soporte: envía una consulta al equipo (tabla support_tickets).
-void showSupportSheet(BuildContext context, {required String audience}) {
+void showSupportSheet(BuildContext context, {required String audience, required String category}) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _SupportForm(audience: audience),
+    builder: (_) => _SupportForm(audience: audience, category: category),
   );
 }
 
 class _SupportForm extends StatefulWidget {
-  const _SupportForm({required this.audience});
+  const _SupportForm({required this.audience, required this.category});
   final String audience;
+  final String category;
 
   @override
   State<_SupportForm> createState() => _SupportFormState();
 }
 
 class _SupportFormState extends State<_SupportForm> {
+  static const _kinds = ['Consulta', 'Incidencia', 'Reclamación'];
   final _subject = TextEditingController();
   final _message = TextEditingController();
-  String _kind = 'QUESTION';
+  int _kind = 0;
   bool _busy = false;
   String? _error;
+
+  @override
+  void dispose() {
+    _subject.dispose();
+    _message.dispose();
+    super.dispose();
+  }
 
   Future<void> _send() async {
     if (_subject.text.trim().length < 3 || _message.text.trim().length < 5) {
@@ -259,17 +268,19 @@ class _SupportFormState extends State<_SupportForm> {
     });
     try {
       final db = Supabase.instance.client;
+      final audience = String.fromCharCodes(widget.audience.runes.take(60));
+      final subject = '[$audience · ${_kinds[_kind]}] ${_subject.text.trim()}';
       await db.from('support_tickets').insert({
         'user_id': db.auth.currentUser!.id,
-        'kind': _kind,
-        'subject': '[${widget.audience}] ${_subject.text.trim()}',
+        'category': _kind == 2 ? 'COMPLAINT' : widget.category,
+        'subject': String.fromCharCodes(subject.runes.take(200)),
         'message': _message.text.trim(),
       });
       if (!mounted) return;
-      Navigator.pop(context);
       snack(context, 'Consulta enviada. Te responderemos en la app.');
+      Navigator.pop(context);
     } catch (_) {
-      setState(() => _error = 'No se pudo enviar. Inténtalo de nuevo.');
+      if (mounted) setState(() => _error = 'No se pudo enviar. Inténtalo de nuevo.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -288,9 +299,9 @@ class _SupportFormState extends State<_SupportForm> {
           ]),
           const SizedBox(height: 12),
           FilterPills(
-            labels: const ['Consulta', 'Incidencia', 'Reclamación'],
-            selected: ['QUESTION', 'INCIDENT', 'CLAIM'].indexOf(_kind),
-            onSelected: (i) => setState(() => _kind = ['QUESTION', 'INCIDENT', 'CLAIM'][i]),
+            labels: _kinds,
+            selected: _kind,
+            onSelected: (i) => setState(() => _kind = i),
           ),
           const SizedBox(height: 12),
           TextField(controller: _subject, maxLength: 100, decoration: const InputDecoration(labelText: 'Asunto')),

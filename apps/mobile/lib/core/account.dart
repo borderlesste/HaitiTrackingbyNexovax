@@ -142,10 +142,8 @@ Future<String?> loadMoncashPhone() async {
   final user = db.auth.currentUser;
   if (user == null) return null;
   try {
-    final row = await db.from('moncash_verifications').select('phone').eq('user_id', user.id).maybeSingle();
-    final phone = row?['phone'] as String?;
-    final authPhone = (user.phone ?? '').isEmpty ? null : (user.phone!.startsWith('+') ? user.phone : '+${user.phone}');
-    return phone != null && phone == authPhone ? phone : null;
+    final phone = await db.rpc('my_moncash_phone') as String?;
+    return db.auth.currentUser?.id == user.id ? phone : null;
   } catch (_) {
     return null;
   }

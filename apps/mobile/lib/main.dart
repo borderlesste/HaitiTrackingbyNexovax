@@ -26,9 +26,11 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp();
     await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    FlutterError.onError = (details) {
+      FirebaseCrashlytics.instance.recordError(details.exception.runtimeType.toString(), details.stack, fatal: true);
+    };
     PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      FirebaseCrashlytics.instance.recordError(error.runtimeType.toString(), stack, fatal: true);
       return true;
     };
   } catch (_) {
@@ -66,7 +68,9 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  bool _recovering = false;
+  String? _shownUserId;
+  String? _recoveryUserId;
+  AuthState? _lastRecoveryEvent;
 
   @override
   Widget build(BuildContext context) {
@@ -74,8 +78,20 @@ class _AuthGateState extends State<AuthGate> {
     return StreamBuilder<AuthState>(
       stream: auth.onAuthStateChange,
       builder: (context, snap) {
-        if (snap.data?.event == AuthChangeEvent.passwordRecovery) _recovering = true;
-        if (auth.currentSession == null) {
+        final userId = auth.currentSession?.user.id;
+        if (_shownUserId != null && _shownUserId != userId) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+          });
+        }
+        _shownUserId = userId;
+        if (_recoveryUserId != userId) _recoveryUserId = null;
+        if (snap.data?.event == AuthChangeEvent.passwordRecovery &&
+            snap.data?.session?.user.id == userId && !identical(snap.data, _lastRecoveryEvent)) {
+          _lastRecoveryEvent = snap.data;
+          _recoveryUserId = userId;
+        }
+        if (userId == null) {
           // Sin cuenta: bienvenida, o la app en modo invitado si eligió explorar.
           return ValueListenableBuilder<bool>(
             valueListenable: Guest.active,
@@ -83,13 +99,15 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
         if (Guest.active.value) Future.microtask(() => Guest.set(false));
-        if (_recovering) return NewPasswordScreen(onDone: () => setState(() => _recovering = false));
+        if (_recoveryUserId == userId) {
+          return NewPasswordScreen(key: ValueKey(userId), onDone: () => setState(() => _recoveryUserId = null));
+        }
         return ValueListenableBuilder<AppProfile>(
           valueListenable: ProfileContext.current,
           builder: (context, profile, _) => switch (profile) {
-            AppProfile.company => const CompanyShell(),
-            AppProfile.developer => const DeveloperShell(),
-            AppProfile.collaborator => const HomeShell(),
+            AppProfile.company => CompanyShell(key: ValueKey(userId)),
+            AppProfile.developer => DeveloperShell(key: ValueKey(userId)),
+            AppProfile.collaborator => HomeShell(key: ValueKey(userId)),
           },
         );
       },

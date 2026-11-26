@@ -30,7 +30,7 @@ begin
   exception when insufficient_privilege then r := r || ' | 1 colaborador no puede aprobar=OK';
   end;
 
-  perform set_config('request.jwt.claims', json_build_object('sub', modr, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', modr, 'role', 'authenticated', 'aal', 'aal2')::text, true);
   select count(*) into n from public.review_queue;
   r := r || ' | 2 cola visible para moderador=' || n;
   begin
