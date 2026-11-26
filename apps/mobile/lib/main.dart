@@ -8,6 +8,7 @@ import 'package:flutter/material.dart' hide Text;
 import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/app_update.dart';
 import 'core/guest.dart';
 import 'core/profile_context.dart';
 import 'core/theme.dart';
@@ -46,6 +47,7 @@ Future<void> main() async {
   await Guest.load();
   await SavedMissions.load();
   runApp(const HaitiTrackingApp());
+  WidgetsBinding.instance.addPostFrameCallback((_) => AppUpdate.check());
 }
 
 class HaitiTrackingApp extends StatelessWidget {
