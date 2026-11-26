@@ -68,14 +68,30 @@ class ContributionSentScreen extends StatelessWidget {
             child: Column(children: [
               KvRow('Estado', '', icon: Icons.schedule,
                   trailing: StatusChip(offline ? 'Pendiente de envío' : 'En revisión', tone: ChipTone.review)),
-              const Divider(height: 8),
-              KvRow('Recompensa estimada', usd(mission.rewardCents),
-                  icon: Icons.savings_outlined, valueColor: HtColors.green),
+              if (mission.paid) ...[
+                const Divider(height: 8),
+                KvRow('Recompensa estimada', usd(mission.rewardCents),
+                    icon: Icons.savings_outlined, valueColor: HtColors.green),
+              ],
             ]),
           ),
           const SizedBox(height: 12),
           const InfoBanner('Te notificaremos cuando tu aporte sea aprobado o si se requiere información adicional.'),
           const SizedBox(height: 20),
+          if (mission.openContribution) ...[
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context)
+                  .pushReplacement(MaterialPageRoute(builder: (_) => NewContributionScreen(mission: mission))),
+              icon: const Icon(Icons.add_location_alt_outlined),
+              label: const Text('Agregar otro lugar'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('Volver al mapa'),
+            ),
+          ] else
           FutureBuilder<int>(
             future: offline ? Future.value(-1) : _countSent(mission.id),
             builder: (context, snap) {

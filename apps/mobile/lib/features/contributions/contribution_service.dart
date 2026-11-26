@@ -141,7 +141,7 @@ class ContributionService {
     final rows = await _db
         .from('mission_contributions')
         .select('id, name, category, status, review_reason, created_at, photo_paths, mission_id, address_reference, '
-            'missions(title, commune, individual_reward_usd, completion_bonus_usd, required_approved_contributions)')
+            'missions(title, commune, individual_reward_usd, completion_bonus_usd, required_approved_contributions, open_contribution)')
         .eq('user_id', uid)
         .order('created_at', ascending: false)
         .limit(200);
@@ -223,7 +223,8 @@ extension ContributionDetail on ContributionService {
     final row = await Supabase.instance.client
         .from('mission_contributions')
         .select('*, missions(id, code, type, title, description, commune, radius_m, individual_reward_usd, '
-            'completion_bonus_usd, required_approved_contributions, requirements, end_at, center, requires_on_site_evidence)')
+            'completion_bonus_usd, required_approved_contributions, requirements, end_at, center, requires_on_site_evidence, '
+            'open_contribution)')
         .eq('id', id)
         .single();
     return Map<String, dynamic>.from(row);

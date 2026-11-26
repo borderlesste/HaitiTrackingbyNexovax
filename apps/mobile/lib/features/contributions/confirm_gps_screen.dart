@@ -135,11 +135,12 @@ class _ConfirmGpsScreenState extends State<ConfirmGpsScreen> {
                 KvRow('Longitud', _pos!.longitude.toStringAsFixed(6), icon: Icons.explore_outlined),
                 KvRow('Precisión', '± ${_pos!.accuracy.round()} m',
                     icon: Icons.gps_fixed, valueColor: check.accuracyOk ? HtColors.green : HtColors.red, bold: true),
-                if (m.requiresOnSite)
+                if (m.requiresOnSite && m.radiusM != null)
                   KvRow('Distancia al centro', '${check.distanceToCenter.round()} m', icon: Icons.straighten),
                 const Divider(height: 22),
                 _Check(check.accuracyOk, 'Precisión de ${maxAccuracyM.round()} m o mejor'),
-                _Check(check.insideArea, m.requiresOnSite ? 'Dentro del área de la misión' : 'Misión sin presencia física'),
+                if (m.radiusM != null || !m.requiresOnSite)
+                  _Check(check.insideArea, m.requiresOnSite ? 'Dentro del área de la misión' : 'Misión sin presencia física'),
                 _Check(check.notMocked, 'Ubicación real del teléfono (sin apps de ubicación falsa)'),
               ]),
             ),

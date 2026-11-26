@@ -2,6 +2,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/money.dart';
+import '../contributions/contribution_service.dart' show parseEwkbPoint;
 
 class Mission {
   Mission({
@@ -20,6 +21,7 @@ class Mission {
     required this.endAt,
     required this.distanceM,
     this.requiresOnSite = true,
+    this.openContribution = false,
   });
 
   final String id;
@@ -39,8 +41,11 @@ class Mission {
   final double distanceM;
   /// Si es false (misiones remotas o de prueba), la app no exige estar dentro del área.
   final bool requiresOnSite;
+  /// Misión de sistema "Agregar un lugar" (aporte libre, sin recompensa).
+  final bool openContribution;
 
   bool get isPriority => type == 'PRIORITY_PLACE';
+  bool get paid => rewardCents > 0 || bonusCents > 0;
   bool get hasBonus => bonusUsd != '0' && bonusUsd != '0.00';
 
   int get rewardCents => cents(rewardUsd);
@@ -65,6 +70,7 @@ class Mission {
         endAt: r['end_at'] == null ? null : DateTime.parse(r['end_at'] as String),
         distanceM: (r['distance_m'] as num).toDouble(),
         requiresOnSite: (r['requires_on_site_evidence'] ?? true) as bool,
+        openContribution: (r['open_contribution'] ?? false) as bool,
       );
 
   static String _money(Object? v) {
@@ -88,6 +94,19 @@ class MissionsRepository {
       'radius_km': radiusKm,
     }) as List<dynamic>;
     return rows.map((r) => Mission.fromRow(r as Map<String, dynamic>)).toList();
+  }
+
+  /// Misión de aporte libre ("Agregar un lugar"), o null si está pausada o no existe.
+  Future<Mission?> openContribution() async {
+    final r = await _db
+        .from('missions')
+        .select('id, code, type, title, description, commune, center, radius_m, individual_reward_usd, '
+            'completion_bonus_usd, required_approved_contributions, requirements, end_at, requires_on_site_evidence, '
+            'open_contribution')
+        .eq('open_contribution', true)
+        .eq('status', 'ACTIVE')
+        .maybeSingle();
+    return missionFromJoin(r, parseEwkbPoint);
   }
 }
 

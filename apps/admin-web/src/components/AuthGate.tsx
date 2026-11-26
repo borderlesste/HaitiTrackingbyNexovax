@@ -9,6 +9,7 @@ import {
   BarChart3,
   ClipboardCheck,
   Code2,
+  Download,
   FileClock,
   Headphones,
   LayoutDashboard,
@@ -96,6 +97,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { href: "/fraude", label: "Duplicados y fraude", icon: ShieldAlert },
       { href: "/mapa", label: "Mapa operativo", icon: MapIcon },
       { href: "/misiones", label: "Misiones", icon: Target },
+      { href: "/exportar", label: "Exportar datos", icon: Download, adminOnly: true },
     ],
   },
   {

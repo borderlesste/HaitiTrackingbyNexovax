@@ -326,7 +326,10 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
               label: const Text('Guardar y continuar'),
             ),
             const SizedBox(height: 8),
-            Text('Recompensa posible: \$${widget.mission.rewardUsd} USD, solo si el aporte es aprobado.',
+            Text(
+                widget.mission.paid
+                    ? 'Recompensa posible: \$${widget.mission.rewardUsd} USD, solo si el aporte es aprobado.'
+                    : 'Aporte libre: no tiene recompensa. El lugar se publica en el mapa cuando el equipo lo aprueba.',
                 textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: HtColors.muted)),
           ],
         ),
@@ -352,7 +355,7 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
     } else if (!_accuracyOk) {
       status = 'Precisión baja: espera unos segundos y actualiza';
     } else {
-      status = 'Dentro del área de la misión';
+      status = widget.mission.radiusM == null ? 'Ubicación lista' : 'Dentro del área de la misión';
     }
     return Container(
       padding: const EdgeInsets.all(14),

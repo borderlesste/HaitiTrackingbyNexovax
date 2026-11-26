@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/guest.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
+import '../contributions/new_contribution_screen.dart';
 import '../home/home_shell.dart';
 import '../rewards/rewards_screen.dart';
 import 'mission.dart';
@@ -83,6 +84,23 @@ class _MapScreenState extends State<MapScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(e is String ? e : 'No se pudo obtener tu ubicación.')));
+    }
+  }
+
+  /// Aporte libre: un lugar que falta en el mapa, fuera de cualquier misión y sin recompensa.
+  Future<void> _addPlace(BuildContext context) async {
+    if (!requireAccount(context, reason: 'Crea una cuenta para agregar lugares que faltan en el mapa.')) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    try {
+      final mission = await MissionsRepository().openContribution();
+      if (mission == null) {
+        messenger.showSnackBar(const SnackBar(content: Text('Agregar lugares no está disponible por ahora.')));
+        return;
+      }
+      await navigator.push(MaterialPageRoute(builder: (_) => NewContributionScreen(mission: mission)));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('No se pudo abrir el formulario. Revisa tu conexión.')));
     }
   }
 
@@ -208,9 +226,19 @@ class _MapScreenState extends State<MapScreen> {
                 const RichAttributionWidget(attributions: [TextSourceAttribution('© OpenStreetMap')]),
               ],
             ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: FloatingActionButton.extended(
+                heroTag: 'add-place',
+                onPressed: () => _addPlace(context),
+                icon: const Icon(Icons.add_location_alt_outlined),
+                label: const Text('Agregar un lugar'),
+              ),
+            ),
             if (visible.isEmpty)
               const Positioned(
-                top: 16,
+                top: 76,
                 left: 16,
                 right: 16,
                 child: InfoBanner('No hay misiones con este filtro. Prueba con "Todas".'),

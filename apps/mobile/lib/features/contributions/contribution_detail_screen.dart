@@ -213,12 +213,14 @@ class _ContributionDetailScreenState extends State<ContributionDetailScreen> {
             ),
           ),
         ],
-        const SizedBox(height: 14),
-        HtCard(
-          color: status == 'APPROVED' ? HtColors.greenSoft : HtColors.surface,
-          child: KvRow(status == 'APPROVED' ? 'Recompensa ganada' : 'Recompensa si se aprueba', usd(reward),
-              icon: Icons.savings_outlined, bold: true, valueColor: HtColors.green),
-        ),
+        if (reward > 0 || mission?['open_contribution'] != true) ...[
+          const SizedBox(height: 14),
+          HtCard(
+            color: status == 'APPROVED' ? HtColors.greenSoft : HtColors.surface,
+            child: KvRow(status == 'APPROVED' ? 'Recompensa ganada' : 'Recompensa si se aprueba', usd(reward),
+                icon: Icons.savings_outlined, bold: true, valueColor: HtColors.green),
+          ),
+        ],
         const SizedBox(height: 20),
         if (canFix)
           FilledButton.icon(

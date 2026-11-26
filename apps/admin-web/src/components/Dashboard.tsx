@@ -54,6 +54,7 @@ export const ACTION_ES: Record<string, string> = {
   set_subscription: "Cambió un plan",
   create_invoice: "Emitió una factura",
   invoice_status: "Cambió el estado de una factura",
+  export_places: "Exportó lugares del mapa",
 };
 
 export default function Dashboard() {
