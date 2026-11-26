@@ -225,7 +225,7 @@ class MiniBars extends StatelessWidget {
 void snack(BuildContext context, String text) =>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
-/// Ayuda y soporte: envía una consulta al equipo (tabla support_tickets).
+/// Ayuda y soporte: envía una consulta al equipo (tabla support_tickets del panel admin).
 void showSupportSheet(BuildContext context, {required String audience}) {
   showModalBottomSheet<void>(
     context: context,
@@ -261,8 +261,9 @@ class _SupportFormState extends State<_SupportForm> {
       final db = Supabase.instance.client;
       await db.from('support_tickets').insert({
         'user_id': db.auth.currentUser!.id,
-        'kind': _kind,
-        'subject': '[${widget.audience}] ${_subject.text.trim()}',
+        // Tabla de soporte del panel admin (20261126100000_panel_admin.sql).
+        'category': _kind == 'CLAIM' ? 'COMPLAINT' : (widget.audience.startsWith('Empresa') ? 'COMPANY' : 'API'),
+        'subject': '[${widget.audience}${_kind == 'INCIDENT' ? ' · incidencia' : ''}] ${_subject.text.trim()}',
         'message': _message.text.trim(),
       });
       if (!mounted) return;
