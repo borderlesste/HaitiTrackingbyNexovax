@@ -4,7 +4,9 @@
 // Uso (Node 18 o superior, desde la raíz del repo):
 //   node supabase/scripts/limites-haiti.mjs            -> escribe supabase/limites/*.sql para pegar en el SQL Editor
 //   node supabase/scripts/limites-haiti.mjs --subir    -> carga directa; requiere SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY
-//   Añade --secciones para incluir también las secciones comunales (ADM3) si geoBoundaries las publica.
+//
+// En geoBoundaries, ADM2 de Haití son los 42 arrondissements; las ~140 comunas son ADM3.
+// Por eso se cargan ADM1 como departamentos (nivel 1) y ADM3 como comunas (nivel 2).
 //
 // Requiere la migración 20261127000000_cartografia_base.sql. Volver a ejecutarlo actualiza los mismos registros.
 
@@ -14,7 +16,8 @@ import { fileURLToPath } from "node:url";
 
 const API = "https://www.geoboundaries.org/api/current/gbOpen/HTI";
 const args = new Set(process.argv.slice(2));
-const levels = [1, 2, ...(args.has("--secciones") ? [3] : [])];
+// [nivel geoBoundaries, nivel en admin_areas]
+const levels = [[1, 1], [3, 2]];
 const outDir = join(dirname(fileURLToPath(import.meta.url)), "..", "limites");
 const MAX_SQL_BYTES = 900_000;
 
@@ -26,8 +29,8 @@ async function getJson(url) {
   return res.json();
 }
 
-async function loadLevel(level) {
-  const meta = await getJson(`${API}/ADM${level}/`);
+async function loadLevel([adm, level]) {
+  const meta = await getJson(`${API}/ADM${adm}/`);
   const url = meta.simplifiedGeometryGeoJSON || meta.gjDownloadURL;
   const geo = await getJson(url);
   const features = geo.features.map((f) => ({
@@ -35,9 +38,9 @@ async function loadLevel(level) {
     properties: { shapeID: f.properties.shapeID, shapeName: f.properties.shapeName, shapeISO: f.properties.shapeISO ?? "" },
     geometry: { type: f.geometry.type, coordinates: round(f.geometry.coordinates) },
   }));
-  const source = `geoBoundaries gbOpen HTI ADM${level} (${meta.boundarySource ?? "fuente sin indicar"}, ${meta.boundaryYearRepresented ?? meta.sourceDataUpdateDate ?? ""})`;
+  const source = `geoBoundaries gbOpen HTI ADM${adm} (${meta.boundarySource ?? "fuente sin indicar"}, ${meta.boundaryYearRepresented ?? meta.sourceDataUpdateDate ?? ""})`;
   const license = meta.boundaryLicense ?? "Ver geoboundaries.org";
-  console.log(`ADM${level}: ${features.length} áreas · ${license}`);
+  console.log(`ADM${adm} -> nivel ${level} (${level === 1 ? "departamentos" : "comunas"}): ${features.length} áreas · ${license}`);
   return { level, features, source, license };
 }
 
@@ -70,7 +73,7 @@ async function writeSql(data) {
       n++;
       const json = JSON.stringify(b);
       if (json.includes("$geo$")) throw new Error("Contenido inesperado en el GeoJSON");
-      const sql = `-- Límites de Haití ADM${level}, lote ${n}. Pegar en el SQL Editor de Supabase.\n` +
+      const sql = `-- Límites de Haití, nivel ${level}, lote ${n}. Pegar en el SQL Editor de Supabase.\n` +
         `select public.import_admin_areas(${level}::smallint, $geo$${json}$geo$::jsonb, ${sqlText(source)}, ${sqlText(license)});\n`;
       await writeFile(join(outDir, `haiti-limites-${String(n).padStart(2, "0")}.sql`), sql);
     }
@@ -97,13 +100,13 @@ async function upload(data) {
   for (const { level, features, source, license } of data) {
     for (const b of batches(features)) {
       const n = await rpc("import_admin_areas", { p_level: level, p_features: b, p_source: source, p_license: license });
-      console.log(`ADM${level}: ${n} áreas guardadas`);
+      console.log(`Nivel ${level}: ${n} áreas guardadas`);
     }
   }
   console.log("Enlace y reasignación:", await rpc("link_admin_areas", {}));
 }
 
 const data = [];
-for (const level of levels) data.push(await loadLevel(level));
+for (const pair of levels) data.push(await loadLevel(pair));
 if (args.has("--subir")) await upload(data);
 else await writeSql(data);

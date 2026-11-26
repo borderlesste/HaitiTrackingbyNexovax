@@ -33,7 +33,7 @@ Configuración, procesadores evaluados y despliegue de la función `billing-paym
 
 Migración `20261127000000_cartografia_base.sql`:
 
-- **Límites administrativos** en `admin_areas` (departamentos, comunas y, opcionalmente, secciones comunales). Cada lugar aprobado queda asignado a su comuna por su punto GPS. Para cargar los polígonos de [geoBoundaries](https://www.geoboundaries.org/) ejecuta `node supabase/scripts/limites-haiti.mjs` y pega en orden los archivos de `supabase/limites/` en el SQL Editor (o usa `--subir` con `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`).
+- **Límites administrativos** en `admin_areas` (departamentos y las ~140 comunas; en geoBoundaries las comunas son ADM3). Cada lugar aprobado queda asignado a su comuna por su punto GPS. Para cargar los polígonos de [geoBoundaries](https://www.geoboundaries.org/) ejecuta `node supabase/scripts/limites-haiti.mjs` y pega en orden los archivos de `supabase/limites/` en el SQL Editor (o usa `--subir` con `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`).
 - **Aporte libre**: botón *Agregar un lugar* en el mapa de la app. Usa la misión de sistema `HT-LIBRE` (oculta del mapa de misiones, sin recompensa, 30 aportes por persona al día) y pasa por la misma moderación.
 - **Exportar datos** en el panel (solo administradores): lugares públicos aprobados en GeoJSON o CSV, con licencia y atribución, filtrables por departamento, comuna y categoría. Cada exportación queda en Auditoría.
 
