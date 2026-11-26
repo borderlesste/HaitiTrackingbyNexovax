@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/guest.dart';
 import 'core/profile_context.dart';
 import 'core/theme.dart';
+import 'features/missions/saved_missions.dart';
 import 'features/company/company_shell.dart';
 import 'features/developer/developer_shell.dart';
 import 'features/auth/welcome_screen.dart';
@@ -38,6 +39,7 @@ Future<void> main() async {
   }
   await ProfileContext.load();
   await Guest.load();
+  await SavedMissions.load();
   runApp(const HaitiTrackingApp());
 }
 

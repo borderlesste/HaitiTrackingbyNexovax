@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
+import '../contributions/contribution_detail_screen.dart';
 import '../contributions/contribution_service.dart';
 import '../contributions/contribution_widgets.dart';
 import '../contributions/new_contribution_screen.dart';
 import 'map_screen.dart';
 import 'mission.dart';
+import 'mission_completed_screen.dart';
 
 /// Cuántos aportes lleva el usuario en una misión y cuánto puede ganar.
 class MissionProgressScreen extends StatefulWidget {
@@ -115,7 +117,13 @@ class _MissionProgressScreenState extends State<MissionProgressScreen> {
                   const Text('Aún no has enviado aportes en esta misión.')
                 else
                   for (final c in _items)
-                    Padding(
+                    InkWell(
+                      onTap: () async {
+                        await Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => ContributionDetailScreen(id: c['id'] as String)));
+                        _load();
+                      },
+                      child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Row(children: [
                         PlaceThumb(url: _photos[firstPhoto(c)], size: 52),
@@ -125,7 +133,9 @@ class _MissionProgressScreenState extends State<MissionProgressScreen> {
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                         ),
                         ContributionStatusChip(c['status'] as String?),
+                        const Icon(Icons.chevron_right, color: HtColors.muted),
                       ]),
+                    ),
                     ),
               ]),
             ),
@@ -153,7 +163,12 @@ class _MissionProgressScreenState extends State<MissionProgressScreen> {
                 label: const Text('Continuar registrando'),
               )
             else
-              const InfoBanner('Ya enviaste todos los aportes de esta misión. Te avisaremos cuando se revisen.'),
+              FilledButton.icon(
+                onPressed: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => MissionCompletedScreen(mission: m))),
+                icon: const Icon(Icons.emoji_events_outlined),
+                label: const Text('Ver misión completada'),
+              ),
           ],
         ),
       ),

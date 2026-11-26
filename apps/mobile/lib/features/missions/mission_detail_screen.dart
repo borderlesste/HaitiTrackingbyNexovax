@@ -8,6 +8,7 @@ import '../../core/ui.dart';
 import '../contributions/new_contribution_screen.dart';
 import 'map_screen.dart';
 import 'mission.dart';
+import 'saved_missions.dart';
 
 class MissionDetailScreen extends StatelessWidget {
   const MissionDetailScreen({super.key, required this.mission});
@@ -27,6 +28,7 @@ class MissionDetailScreen extends StatelessWidget {
             })
         .toList();
     return [
+      'Verificar que el lugar no exista ya en el mapa',
       if (m.requiresOnSite) 'Estar dentro del área de la misión',
       ...parts,
       if (m.requiredContributions > 1) 'Registrar ${m.requiredContributions} establecimientos distintos',
@@ -153,6 +155,22 @@ class MissionDetailScreen extends StatelessWidget {
             },
             icon: const Icon(Icons.play_arrow),
             label: const Text('Iniciar misión'),
+          ),
+          const SizedBox(height: 10),
+          ValueListenableBuilder<Set<String>>(
+            valueListenable: SavedMissions.ids,
+            builder: (context, saved, _) {
+              final on = saved.contains(m.id);
+              return OutlinedButton.icon(
+                onPressed: () {
+                  SavedMissions.toggle(m.id);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(on ? 'Quitada de tus misiones guardadas.' : 'Guardada en "Mis misiones".')));
+                },
+                icon: Icon(on ? Icons.bookmark : Icons.bookmark_border),
+                label: Text(on ? 'Guardada para después' : 'Guardar para después'),
+              );
+            },
           ),
         ],
       ),

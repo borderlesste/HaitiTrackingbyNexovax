@@ -6,8 +6,10 @@ import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../missions/mission.dart';
+import '../missions/mission_completed_screen.dart';
 import '../missions/mission_progress_screen.dart';
 import 'contribution_draft.dart';
+import 'contribution_service.dart';
 import 'contribution_widgets.dart';
 import 'new_contribution_screen.dart';
 
@@ -74,22 +76,49 @@ class ContributionSentScreen extends StatelessWidget {
           const SizedBox(height: 12),
           const InfoBanner('Te notificaremos cuando tu aporte sea aprobado o si se requiere información adicional.'),
           const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: () => Navigator.of(context)
-                .pushReplacement(MaterialPageRoute(builder: (_) => MissionProgressScreen(mission: mission))),
-            icon: const Icon(Icons.bar_chart),
-            label: const Text('Ver progreso de la misión'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: () => Navigator.of(context)
-                .pushReplacement(MaterialPageRoute(builder: (_) => NewContributionScreen(mission: mission))),
-            icon: const Icon(Icons.add_circle_outline),
-            label: const Text('Registrar otro establecimiento'),
+          FutureBuilder<int>(
+            future: offline ? Future.value(-1) : _countSent(mission.id),
+            builder: (context, snap) {
+              final n = snap.data ?? -1;
+              final total = mission.requiredContributions;
+              final complete = n >= total;
+              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (complete)
+                  FilledButton.icon(
+                    onPressed: () => Navigator.of(context)
+                        .pushReplacement(MaterialPageRoute(builder: (_) => MissionCompletedScreen(mission: mission))),
+                    icon: const Icon(Icons.emoji_events_outlined),
+                    label: const Text('Ver misión completada'),
+                  )
+                else
+                  FilledButton.icon(
+                    onPressed: () => Navigator.of(context)
+                        .pushReplacement(MaterialPageRoute(builder: (_) => NewContributionScreen(mission: mission))),
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: Text(n > 0 ? 'Registrar siguiente (${n + 1} de $total)' : 'Registrar otro establecimiento'),
+                  ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context)
+                      .pushReplacement(MaterialPageRoute(builder: (_) => MissionProgressScreen(mission: mission))),
+                  icon: const Icon(Icons.bar_chart),
+                  label: const Text('Ver progreso de la misión'),
+                ),
+              ]);
+            },
           ),
         ],
       ),
     );
+  }
+}
+
+Future<int> _countSent(String missionId) async {
+  try {
+    final items = await ContributionService().missionContributions(missionId);
+    return items.where((c) => c['status'] != 'REJECTED').length;
+  } catch (_) {
+    return -1;
   }
 }
 
