@@ -5,13 +5,26 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'contribution_draft.dart';
 
 class DuplicateCandidate {
-  DuplicateCandidate({required this.isPending, required this.name, required this.category, required this.distanceM, this.code});
+  DuplicateCandidate({
+    required this.isPending,
+    required this.name,
+    required this.category,
+    required this.distanceM,
+    this.code,
+    this.similarity = 0,
+  });
 
   final bool isPending;
   final String? code;
   final String name;
   final String category;
   final double distanceM;
+
+  /// Parecido del nombre (0 a 1).
+  final double similarity;
+
+  /// Muy probablemente el mismo lugar.
+  bool get likelySame => similarity >= .5 || distanceM <= 12;
 }
 
 enum SubmitResult { sent, savedOffline }
@@ -32,6 +45,7 @@ class ContributionService {
         name: m['name'] as String,
         category: m['category'] as String,
         distanceM: (m['distance_m'] as num).toDouble(),
+        similarity: (m['name_similarity'] as num?)?.toDouble() ?? 0,
       );
     }).toList();
   }

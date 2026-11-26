@@ -12,11 +12,11 @@ import '../../core/theme.dart';
 import '../missions/mission.dart';
 import 'contribution_draft.dart';
 import 'contribution_service.dart';
+import 'confirm_gps_screen.dart';
 import 'contribution_sent_screen.dart';
+import 'duplicate_check_screen.dart';
+import 'gps.dart';
 import '../../core/ui.dart';
-
-/// Precisión máxima aceptada para enviar (metros).
-const maxAccuracyM = 30.0;
 
 class NewContributionScreen extends StatefulWidget {
   const NewContributionScreen({super.key, required this.mission});
@@ -40,6 +40,9 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
   bool _locating = false;
   File? _photo;
   bool _sending = false;
+
+  /// La persona revisó el punto en el mapa (pantalla "Confirmar punto GPS").
+  bool _gpsConfirmed = false;
 
   /// Número de este aporte dentro de la misión (1 de 5, 2 de 5...).
   int _number = 1;
@@ -84,20 +87,13 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
       _gpsError = null;
     });
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        throw 'Activa la ubicación (GPS) del teléfono.';
-      }
-      var perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
-      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
-        throw 'Necesitamos tu ubicación solo para confirmar que estás en el lugar.';
-      }
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, timeLimit: Duration(seconds: 25)),
-      );
-      setState(() => _position = pos);
+      final pos = await captureBestPosition();
+      setState(() {
+        _position = pos;
+        _gpsConfirmed = false;
+      });
     } catch (e) {
-      setState(() => _gpsError = e is String ? e : 'No se pudo obtener la ubicación. Inténtalo al aire libre.');
+      setState(() => _gpsError = e.toString());
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -116,23 +112,29 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_photo == null) return _snack('Agrega una foto del establecimiento.');
     if (_position == null) return _snack('Primero confirma tu ubicación GPS.');
-    if (!_accuracyOk) return _snack('La precisión GPS es baja. Toca "Actualizar" al aire libre.');
-    if (!_insideArea) return _snack('Estás fuera del área de esta misión.');
+
+    // 1) Confirmar el punto GPS en el mapa.
+    if (!_gpsConfirmed || !_accuracyOk || !_insideArea) {
+      final confirmed = await _openGpsReview();
+      if (confirmed != true) return;
+    }
+    if (!mounted) return;
+
+    // 2) Comprobar duplicados (sin conexión deja continuar: lo revisa el equipo).
+    final distinct = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => DuplicateCheckScreen(
+        name: _name.text.trim(),
+        category: _category!,
+        lat: _position!.latitude,
+        lng: _position!.longitude,
+        photo: _photo,
+      ),
+    ));
+    if (distinct != true || !mounted) return;
 
     setState(() => _sending = true);
     try {
-      // 1) Posibles duplicados (si no hay conexión, se omite y lo revisa el moderador).
-      List<DuplicateCandidate> dups = const [];
-      try {
-        dups = await _service.checkDuplicates(_position!.latitude, _position!.longitude, _name.text.trim());
-      } catch (_) {}
-      if (!mounted) return;
-      if (dups.isNotEmpty) {
-        final goOn = await _showDuplicates(dups);
-        if (goOn != true) return;
-      }
-
-      // 2) Enviar o guardar sin conexión.
+      // 3) Enviar o guardar sin conexión.
       final draft = ContributionDraft(
         id: _draftId,
         missionId: widget.mission.id,
@@ -164,36 +166,18 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
     }
   }
 
-  Future<bool?> _showDuplicates(List<DuplicateCandidate> dups) => showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        builder: (ctx) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text('Posibles duplicados', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                const Text('Ya hay lugares registrados muy cerca. Si es el mismo, no se paga como nuevo.'),
-                const SizedBox(height: 8),
-                for (final d in dups)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(d.isPending ? Icons.hourglass_top : Icons.place, color: HtColors.red),
-                    title: Text(d.name),
-                    subtitle: Text('${d.category} · a ${d.distanceM.round()} m'
-                        '${d.isPending ? ' · en revisión' : (d.code != null ? ' · ${d.code}' : '')}'),
-                  ),
-                const SizedBox(height: 8),
-                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Es un lugar distinto, enviar')),
-                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Es el mismo, cancelar')),
-              ],
-            ),
-          ),
-        ),
-      );
+  Future<bool> _openGpsReview() async {
+    final pos = await Navigator.of(context).push<Position>(MaterialPageRoute(
+      builder: (_) => ConfirmGpsScreen(mission: widget.mission, initial: _position),
+    ));
+    if (pos == null || !mounted) return false;
+    setState(() {
+      _position = pos;
+      _gpsError = null;
+      _gpsConfirmed = true;
+    });
+    return true;
+  }
 
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
@@ -376,14 +360,19 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
             ),
           ]),
         ],
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          if (p != null)
+            TextButton.icon(
+              onPressed: _locating ? null : _openGpsReview,
+              icon: Icon(_gpsConfirmed ? Icons.check_circle : Icons.map_outlined, size: 18),
+              label: Text(_gpsConfirmed ? 'Punto confirmado' : 'Revisar en el mapa'),
+            ),
+          TextButton.icon(
             onPressed: _locating ? null : _locate,
             icon: const Icon(Icons.refresh, size: 18),
             label: const Text('Actualizar'),
           ),
-        ),
+        ]),
       ]),
     );
   }
