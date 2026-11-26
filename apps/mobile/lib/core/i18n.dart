@@ -30,8 +30,17 @@ class Lang {
         return;
       }
     } catch (_) {}
-    final device = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
-    if (codes.contains(device)) current.value = device;
+    // Primera vez: el idioma del teléfono si es uno de los 4 (en el orden de preferencia del sistema); si no, español.
+    current.value = deviceLanguage(WidgetsBinding.instance.platformDispatcher.locales);
+  }
+
+  /// Primer idioma del sistema que la app ofrece; español si ninguno coincide.
+  static String deviceLanguage(List<Locale> locales) {
+    for (final l in locales) {
+      final code = l.languageCode.toLowerCase();
+      if (codes.contains(code)) return code;
+    }
+    return 'es';
   }
 
   /// Cambia el idioma de toda la app al instante y lo recuerda.

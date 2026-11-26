@@ -18,6 +18,13 @@ void main() {
     expect(tr('Mis aportes'), 'Mis aportes');
   });
 
+  test('al instalar usa el idioma del teléfono si la app lo ofrece', () {
+    expect(Lang.deviceLanguage(const [Locale('fr', 'HT')]), 'fr');
+    expect(Lang.deviceLanguage(const [Locale('ht')]), 'ht');
+    expect(Lang.deviceLanguage(const [Locale('de'), Locale('en', 'US')]), 'en');
+    expect(Lang.deviceLanguage(const [Locale('pt', 'BR')]), 'es');
+  });
+
   testWidgets('cambiar el idioma actualiza las pantallas abiertas', (tester) async {
     await Lang.set('es');
     await tester.pumpWidget(const MaterialApp(home: Scaffold(body: Text('Mis aportes'))));
