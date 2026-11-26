@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
-import { supabase, usd } from "@/lib/supabase";
+import { fmtDate, supabase, usd } from "@/lib/supabase";
 
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
 
@@ -28,6 +28,16 @@ type Item = {
   distance_to_mission_m: number;
 };
 
+type Flags = {
+  near_places: number;
+  near_contributions: number;
+  user_last_hour: number;
+  mocked_location: boolean;
+  low_accuracy: boolean;
+  outside_area: boolean;
+  no_photo: boolean;
+};
+
 type Dup = { source: string; code: string | null; name: string; category: string; distance_m: number; name_similarity: number };
 
 const PENDING = ["SUBMITTED", "AUTO_CHECKED", "HUMAN_REVIEW"];
@@ -47,6 +57,7 @@ export default function ReviewQueuePage() {
   const [selected, setSelected] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     let q = supabase.from("review_queue").select("*").order("created_at", { ascending: true }).limit(200);
@@ -64,11 +75,23 @@ export default function ReviewQueuePage() {
     Promise.resolve().then(load);
   }, [load]);
 
+  // Abrir directamente un aporte (enlace desde Duplicados y fraude: /aportes?id=…).
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (!id) return;
+    supabase
+      .from("review_queue")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+      .then(({ data }) => data && setSelected(data as Item));
+  }, []);
+
   return (
     <div className="split">
       <section className="list">
         <div className="row between">
-          <h2>Cola de revisión</h2>
+          <h2>Revisar aportes</h2>
           <select value={filter} onChange={(e) => {
               setLoading(true);
               setFilter(e.target.value as "pending" | "all");
@@ -78,6 +101,7 @@ export default function ReviewQueuePage() {
           </select>
         </div>
         {error && <p className="error">{error}</p>}
+        {notice && <p className="ok small">{notice}</p>}
         {loading ? (
           <p className="muted">Cargando…</p>
         ) : items.length === 0 ? (
@@ -90,7 +114,7 @@ export default function ReviewQueuePage() {
                 <span className={`tag s-${it.status}`}>{STATUS_ES[it.status] ?? it.status}</span>
               </div>
               <div className="muted small">
-                {it.category} · {it.mission_code} · {new Date(it.created_at).toLocaleString("es")}
+                {it.category} · {it.mission_code} · {fmtDate(it.created_at)}
               </div>
             </button>
           ))
@@ -101,8 +125,9 @@ export default function ReviewQueuePage() {
           <Detail
             key={selected.id}
             item={selected}
-            onDone={async () => {
+            onDone={async (msg) => {
               setSelected(null);
+              setNotice(msg);
               await load();
             }}
           />
@@ -114,21 +139,27 @@ export default function ReviewQueuePage() {
   );
 }
 
-function Detail({ item, onDone }: { item: Item; onDone: () => void }) {
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+function Detail({ item, onDone }: { item: Item; onDone: (msg: string) => void }) {
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [flags, setFlags] = useState<Flags | null>(null);
   const [dups, setDups] = useState<Dup[]>([]);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const path = item.photo_paths?.[0];
-    if (path) {
+    if (item.photo_paths?.length) {
       supabase.storage
         .from("evidence")
-        .createSignedUrl(path, 600)
-        .then(({ data }) => setPhotoUrl(data?.signedUrl ?? null));
+        .createSignedUrls(item.photo_paths, 600)
+        .then(({ data }) => setPhotos((data ?? []).map((d) => d.signedUrl).filter((u): u is string => !!u)));
     }
+    supabase
+      .from("contribution_flags")
+      .select("near_places, near_contributions, user_last_hour, mocked_location, low_accuracy, outside_area, no_photo")
+      .eq("id", item.id)
+      .maybeSingle()
+      .then(({ data }) => setFlags(data as Flags | null));
     supabase
       .rpc("check_duplicates", { lat: item.lat, lng: item.lng, place_name: item.name })
       .then(({ data }) => setDups(((data ?? []) as Dup[]).filter((d) => !(d.source === "pending" && d.name === item.name && d.distance_m < 0.5))));
@@ -152,10 +183,11 @@ function Detail({ item, onDone }: { item: Item; onDone: () => void }) {
       return;
     }
     const r = data as { reward_usd?: number; bonus_usd?: number };
-    if (decision === "APPROVED") {
-      alert(`Aprobado. Recompensa: ${usd(r.reward_usd)}${r.bonus_usd ? ` + bono ${usd(r.bonus_usd)}` : ""}`);
-    }
-    onDone();
+    onDone(
+      decision === "APPROVED"
+        ? `${item.name}: aprobado. Recompensa ${usd(r.reward_usd)}${r.bonus_usd ? ` + bono ${usd(r.bonus_usd)}` : ""}.`
+        : `${item.name}: ${decision === "REJECTED" ? "rechazado" : "se pidieron cambios al colaborador"}.`,
+    );
   }
 
   const pending = PENDING.includes(item.status);
@@ -174,9 +206,13 @@ function Detail({ item, onDone }: { item: Item; onDone: () => void }) {
 
       <div className="grid2">
         <div>
-          {photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photoUrl} alt="Evidencia" className="photo" />
+          {photos.length > 0 ? (
+            photos.map((u, i) => (
+              <a key={i} href={u} target="_blank" rel="noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={u} alt={`Evidencia ${i + 1}`} className="photo" style={i > 0 ? { height: 120, marginTop: 6 } : undefined} />
+              </a>
+            ))
           ) : (
             <div className="photo placeholder">Sin foto</div>
           )}
@@ -197,13 +233,22 @@ function Detail({ item, onDone }: { item: Item; onDone: () => void }) {
           <tr><td>Notas</td><td>{item.notes || "—"}</td></tr>
           <tr><td>GPS</td><td>{item.lat.toFixed(5)}, {item.lng.toFixed(5)} · ±{Math.round(item.accuracy_m ?? 0)} m {lowAccuracy && <span className="warn">precisión baja</span>}</td></tr>
           <tr><td>Distancia al centro de la misión</td><td>{Math.round(item.distance_to_mission_m)} m</td></tr>
-          <tr><td>Capturado</td><td>{new Date(item.captured_at).toLocaleString("es")}</td></tr>
+          <tr><td>Capturado</td><td>{fmtDate(item.captured_at)}</td></tr>
           <tr><td>Recompensa si se aprueba</td><td><b>{usd(item.individual_reward_usd)}</b></td></tr>
           {item.review_reason && <tr><td>Motivo anterior</td><td>{item.review_reason}</td></tr>}
         </tbody>
       </table>
 
       {mocked && <p className="warn">⚠ El teléfono indicó ubicación simulada. Revisa con cuidado.</p>}
+      {flags && (
+        <div>
+          {flags.outside_area && <span className="flag">Fuera de la zona de la misión</span>}
+          {flags.near_places > 0 && <span className="flag">Parecido a {flags.near_places} lugar(es) ya verificado(s)</span>}
+          {flags.near_contributions > 0 && <span className="flag mid">Parecido a {flags.near_contributions} aporte(s)</span>}
+          {flags.user_last_hour >= 10 && <span className="flag mid">{flags.user_last_hour} envíos del autor en 1 hora</span>}
+          {flags.no_photo && <span className="flag mid">Sin foto</span>}
+        </div>
+      )}
 
       <h3>Posibles duplicados cerca</h3>
       {dups.length === 0 ? (

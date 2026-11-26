@@ -21,3 +21,59 @@ export function usd(v: number | string | null | undefined): string {
   if (v === null || v === undefined) return "—";
   return `$${Number(v).toFixed(2)}`;
 }
+
+export function fmtDate(v: string | null | undefined, withTime = true): string {
+  if (!v) return "—";
+  const d = new Date(v);
+  return withTime
+    ? d.toLocaleString("es", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("es", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+export function htg(v: number | string | null | undefined): string {
+  if (v === null || v === undefined) return "—";
+  return `${Number(v).toLocaleString("es", { maximumFractionDigits: 0 })} HTG`;
+}
+
+/** Lee un ajuste de platform_settings (jsonb) con valor por defecto. */
+export async function getSetting<T>(key: string, fallback: T): Promise<T> {
+  const { data } = await supabase.from("platform_settings").select("value").eq("key", key).maybeSingle();
+  return data ? ({ ...fallback, ...(data.value as object) } as T) : fallback;
+}
+
+export async function saveSetting(key: string, value: unknown): Promise<string | null> {
+  const { error } = await supabase
+    .from("platform_settings")
+    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  return error?.message ?? null;
+}
+
+/** Descarga filas como CSV (conciliación, informes). */
+export function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
+  if (rows.length === 0) return;
+  const cols = Object.keys(rows[0]);
+  const esc = (v: unknown) => {
+    const s = v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [cols.join(","), ...rows.map((r) => cols.map((c) => esc(r[c])).join(","))].join("\n");
+  const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export const MISSION_STATUS_ES: Record<string, string> = {
+  DRAFT: "Borrador",
+  IN_REVIEW: "En revisión",
+  APPROVED: "Aprobada",
+  SCHEDULED: "Programada",
+  ACTIVE: "Activa",
+  PAUSED: "Pausada",
+  COMPLETED: "Cerrada",
+  EXPIRED: "Vencida",
+  CANCELLED: "Cancelada",
+  ARCHIVED: "Archivada",
+};
