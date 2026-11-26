@@ -8,6 +8,8 @@ import { getSetting, saveSetting, supabase, usd } from "@/lib/supabase";
 
 type General = { support_email: string; support_phone: string; languages: string[]; default_language: string; terms_url: string; privacy_url: string };
 type Withdrawals = { enabled: boolean; min_usd: number; max_usd: number };
+type Payments = { usd_htg_rate: number; providers: { moncash: boolean; stripe: boolean } };
+const PAYMENTS: Payments = { usd_htg_rate: 131, providers: { moncash: false, stripe: false } };
 
 const LANGS: Record<string, string> = { ht: "Kreyòl", fr: "Français", es: "Español", en: "English" };
 const GENERAL: General = { support_email: "", support_phone: "", languages: ["ht", "fr", "es", "en"], default_language: "ht", terms_url: "", privacy_url: "" };
@@ -15,6 +17,7 @@ const GENERAL: General = { support_email: "", support_phone: "", languages: ["ht
 export default function SettingsView() {
   const [general, setGeneral] = useState<General>(GENERAL);
   const [wd, setWd] = useState<Withdrawals>({ enabled: false, min_usd: 5, max_usd: 50 });
+  const [pay, setPay] = useState<Payments>(PAYMENTS);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [search, setSearch] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -28,6 +31,7 @@ export default function SettingsView() {
   useEffect(() => {
     getSetting<General>("general", GENERAL).then(setGeneral);
     getSetting<Withdrawals>("withdrawals", { enabled: false, min_usd: 5, max_usd: 50 }).then(setWd);
+    getSetting<Payments>("payments", PAYMENTS).then((v) => setPay({ ...PAYMENTS, ...v, providers: { ...PAYMENTS.providers, ...v.providers } }));
     Promise.resolve().then(loadTeam);
   }, [loadTeam]);
 
@@ -46,6 +50,12 @@ export default function SettingsView() {
     if (wd.min_usd <= 0 || wd.max_usd < wd.min_usd) return done("El mínimo debe ser mayor que 0 y el máximo mayor o igual al mínimo.", "");
     if (wd.enabled && !confirm("¿Activar los retiros para todos los colaboradores? Hazlo solo con la aprobación de MonCash y fondos disponibles.")) return;
     done(await saveSetting("withdrawals", wd), "Política de retiros guardada.");
+  }
+
+  async function savePay(e: FormEvent) {
+    e.preventDefault();
+    if (!(pay.usd_htg_rate > 0) || Number(pay.usd_htg_rate.toFixed(4)) !== pay.usd_htg_rate) return done("La tasa debe ser mayor que 0 (hasta 4 decimales).", "");
+    done(await saveSetting("payments", pay), "Cobro en línea guardado.");
   }
 
   async function setRole(u: AdminUser, role: string, grant: boolean) {
@@ -113,6 +123,26 @@ export default function SettingsView() {
           <button className="btn primary"><Save size={14} /> Guardar política</button>
         </form>
       </div>
+
+      <form className="card form" onSubmit={savePay}>
+        <h3 style={{ marginTop: 0 }}>Cobro en línea de planes</h3>
+        <div className="row gap">
+          <label style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: "none" }}>
+            <input type="checkbox" checked={pay.providers.moncash} onChange={(e) => setPay({ ...pay, providers: { ...pay.providers, moncash: e.target.checked } })} />
+            MonCash (HTG)
+          </label>
+          <label style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: "none" }}>
+            <input type="checkbox" checked={pay.providers.stripe} onChange={(e) => setPay({ ...pay, providers: { ...pay.providers, stripe: e.target.checked } })} />
+            Tarjeta vía Stripe (USD)
+          </label>
+          <label>Tasa HTG por 1 USD<input type="number" step="0.0001" min="0.0001" value={pay.usd_htg_rate} onChange={(e) => setPay({ ...pay, usd_htg_rate: Number(e.target.value) })} /></label>
+        </div>
+        <p className="muted small">
+          Los planes tienen precio en USD. Con MonCash se cobra en gourdes enteras al tipo indicado (por ejemplo, {usd(29)} = G {Math.round(29 * pay.usd_htg_rate).toLocaleString("es")}).
+          Activa un medio solo cuando la función <span className="mono">billing-payments</span> tenga sus credenciales; las claves nunca se guardan aquí.
+        </p>
+        <button className="btn primary"><Save size={14} /> Guardar cobro en línea</button>
+      </form>
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Equipo y permisos</h3>

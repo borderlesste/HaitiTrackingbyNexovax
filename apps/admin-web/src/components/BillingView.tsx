@@ -8,17 +8,24 @@ import { downloadCsv, fmtDate, supabase, usd } from "@/lib/supabase";
 
 type Plan = { code: string; audience: string; name: string; price_usd_month: number; daily_quota: number | null; features: string[]; sort: number; active: boolean };
 type Sub = { id: string; audience: string; org_id: string | null; owner_id: string; plan_code: string; plan_name: string; price_usd_month: number; status: string; started_at: string | null; created_at: string; org_name: string | null; owner_name: string | null };
-type Inv = { id: string; number: string; audience: string; org_name: string | null; owner_name: string | null; plan_name: string | null; description: string; period_start: string | null; period_end: string | null; amount_usd: number; status: string; created_at: string; paid_at: string | null };
+type Inv = { id: string; number: string; audience: string; org_name: string | null; owner_name: string | null; plan_name: string | null; description: string; period_start: string | null; period_end: string | null; amount_usd: number; status: string; created_at: string; paid_at: string | null; last_payment_provider: string | null; last_payment_status: string | null };
+type Pay = { id: string; invoice_number: string; org_name: string | null; owner_name: string | null; audience: string; provider: string; status: string; order_id: string; amount: number; currency: string; usd_htg_rate: number | null; provider_ref: string | null; payer: string | null; error: string | null; created_at: string; paid_at: string | null };
+type PaymentsCfg = { usd_htg_rate: number; providers: { moncash: boolean; stripe: boolean } };
 type Campaign = { id: string; org_id: string; org_name: string; title: string; proposed_budget_usd: number; status: string; mission_code: string | null; created_at: string };
 
 const SUB_ES: Record<string, string> = { REQUESTED: "Solicitado", ACTIVE: "Activo", CANCELLED: "Cancelado" };
 const INV_ES: Record<string, string> = { PENDING: "Pendiente", PAID: "Pagada", VOID: "Anulada" };
 const AUD_ES: Record<string, string> = { company: "Empresa", developer: "Desarrollador" };
+const PAY_ES: Record<string, string> = { CREATED: "Esperando pago", PAID: "Cobrado", FAILED: "Fallido", EXPIRED: "Vencido", REFUND_DUE: "Devolver" };
+const PROV_ES: Record<string, string> = { moncash: "MonCash", stripe: "Tarjeta (Stripe)" };
+const money = (amount: number, currency: string) => (currency === "HTG" ? `G ${Number(amount).toLocaleString("es")} HTG` : usd(amount));
 
 export type InvoiceDraft = { audience: string; org_id: string | null; owner_id: string | null; plan_code: string | null; description: string; amount: number; who: string };
 
 export default function BillingView() {
-  const [tab, setTab] = useState<"subs" | "invoices" | "plans" | "missions">("subs");
+  const [tab, setTab] = useState<"subs" | "invoices" | "payments" | "plans" | "missions">("subs");
+  const [payments, setPayments] = useState<Pay[]>([]);
+  const [cfg, setCfg] = useState<PaymentsCfg | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subs, setSubs] = useState<Sub[]>([]);
   const [invoices, setInvoices] = useState<Inv[]>([]);
@@ -28,12 +35,16 @@ export default function BillingView() {
   const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [p, s, i, c] = await Promise.all([
+    const [p, s, i, c, pay, st] = await Promise.all([
       supabase.from("billing_plans").select("*").order("audience").order("sort"),
       supabase.from("billing_subscriptions_view").select("*").order("created_at", { ascending: false }),
       supabase.from("invoices_view").select("*").order("created_at", { ascending: false }).limit(500),
       supabase.from("campaign_requests_view").select("id, org_id, org_name, title, proposed_budget_usd, status, mission_code, created_at").order("created_at", { ascending: false }),
+      supabase.from("invoice_payments_view").select("*").order("created_at", { ascending: false }).limit(500),
+      supabase.from("platform_settings").select("value").eq("key", "payments").maybeSingle(),
     ]);
+    setPayments((pay.data ?? []) as Pay[]);
+    setCfg((st.data?.value ?? null) as PaymentsCfg | null);
     setErr(p.error?.message ?? s.error?.message ?? i.error?.message ?? null);
     setPlans((p.data ?? []) as Plan[]);
     setSubs((s.data ?? []) as Sub[]);
@@ -74,8 +85,9 @@ export default function BillingView() {
       mrr: subs.filter((s) => s.status === "ACTIVE").reduce((a, s) => a + Number(s.price_usd_month), 0),
       pending: invoices.filter((i) => i.status === "PENDING").reduce((a, i) => a + Number(i.amount_usd), 0),
       paid: invoices.filter((i) => i.status === "PAID").reduce((a, i) => a + Number(i.amount_usd), 0),
+      refunds: payments.filter((x) => x.status === "REFUND_DUE").length,
     }),
-    [subs, invoices],
+    [subs, invoices, payments],
   );
 
   return (
@@ -85,21 +97,29 @@ export default function BillingView() {
           <FilePlus2 size={14} /> Nueva factura
         </button>
       </PageHead>
-      <p className="card small" style={{ background: "#fff8e6" }}>
-        El cobro en línea todavía no está conectado. El equipo confirma el pago (transferencia, MonCash o efectivo), activa el plan y marca la factura
-        como pagada.
-      </p>
+      {cfg?.providers?.moncash || cfg?.providers?.stripe ? (
+        <p className="card small">
+          Cobro en línea activo: {[cfg.providers.moncash && `MonCash (tasa ${cfg.usd_htg_rate} HTG/USD)`, cfg.providers.stripe && "tarjeta vía Stripe"].filter(Boolean).join(" · ")}. Al
+          confirmarse el pago, la factura queda pagada y el plan se activa solo. Los pagos por transferencia o efectivo se siguen marcando a mano.
+        </p>
+      ) : (
+        <p className="card small" style={{ background: "#fff8e6" }}>
+          El cobro en línea está apagado (actívalo en Configuración cuando la función de pagos tenga sus credenciales). El equipo confirma el pago
+          (transferencia, MonCash o efectivo) y marca la factura como pagada, lo que activa el plan.
+        </p>
+      )}
       <div className="kpis">
         <div className="kpi"><div className="label">Planes por activar</div><div className={`value ${totals.requested ? "alert" : ""}`}>{totals.requested}</div></div>
         <div className="kpi"><div className="label">Ingresos mensuales activos</div><div className="value">{usd(totals.mrr)}</div></div>
         <div className="kpi"><div className="label">Facturas pendientes</div><div className="value">{usd(totals.pending)}</div></div>
         <div className="kpi"><div className="label">Cobrado</div><div className="value">{usd(totals.paid)}</div></div>
+        {totals.refunds > 0 && <div className="kpi"><div className="label">Pagos por devolver</div><div className="value alert">{totals.refunds}</div></div>}
       </div>
       {msg && <p className="ok">{msg}</p>}
       {err && <p className="error">{err}</p>}
 
       <div className="tabs">
-        {([["subs", "Suscripciones"], ["invoices", "Facturas"], ["missions", "Misiones de empresas"], ["plans", "Planes"]] as const).map(([k, v]) => (
+        {([["subs", "Suscripciones"], ["invoices", "Facturas"], ["payments", "Pagos en línea"], ["missions", "Misiones de empresas"], ["plans", "Planes"]] as const).map(([k, v]) => (
           <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{v}</button>
         ))}
       </div>
@@ -168,7 +188,11 @@ export default function BillingView() {
                   <td>{i.org_name ?? i.owner_name ?? "—"}<div className="muted small">{AUD_ES[i.audience]}</div></td>
                   <td>{i.description}{i.period_start && <div className="muted small">{i.period_start} → {i.period_end}</div>}</td>
                   <td className="num"><b>{usd(i.amount_usd)}</b></td>
-                  <td><span className={`tag s-${i.status === "PAID" ? "COMPLETED" : i.status === "VOID" ? "CLOSED" : "PENDING"}`}>{INV_ES[i.status]}</span>{i.paid_at && <div className="muted small">{fmtDate(i.paid_at, false)}</div>}</td>
+                  <td>
+                    <span className={`tag s-${i.status === "PAID" ? "COMPLETED" : i.status === "VOID" ? "CLOSED" : "PENDING"}`}>{INV_ES[i.status]}</span>
+                    {i.paid_at && <div className="muted small">{fmtDate(i.paid_at, false)}</div>}
+                    {i.last_payment_provider && <div className="muted small">{PROV_ES[i.last_payment_provider]}: {PAY_ES[i.last_payment_status ?? ""]}</div>}
+                  </td>
                   <td>
                     {i.status === "PENDING" && (
                       <div className="row gap">
@@ -182,6 +206,34 @@ export default function BillingView() {
             </tbody>
           </table>
           {invoices.length === 0 && <div className="empty">Sin facturas todavía.</div>}
+        </div>
+      )}
+
+      {tab === "payments" && (
+        <div className="scroll">
+          <table className="table">
+            <thead>
+              <tr><th>Fecha</th><th>Factura</th><th>Cliente</th><th>Medio</th><th className="num">Monto</th><th>Referencia</th><th>Estado</th></tr>
+            </thead>
+            <tbody>
+              {payments.map((x) => (
+                <tr key={x.id}>
+                  <td className="small">{fmtDate(x.created_at)}{x.paid_at && <div className="muted">cobrado {fmtDate(x.paid_at)}</div>}</td>
+                  <td className="mono">{x.invoice_number}</td>
+                  <td>{x.org_name ?? x.owner_name ?? "—"}<div className="muted small">{AUD_ES[x.audience]}</div></td>
+                  <td>{PROV_ES[x.provider] ?? x.provider}{x.payer && <div className="muted small">{x.payer}</div>}</td>
+                  <td className="num"><b>{money(x.amount, x.currency)}</b>{x.usd_htg_rate && <div className="muted small">tasa {x.usd_htg_rate}</div>}</td>
+                  <td className="mono small">{x.order_id}{x.provider_ref && <div className="muted">{x.provider_ref}</div>}</td>
+                  <td>
+                    <span className={`tag s-${x.status === "PAID" ? "COMPLETED" : x.status === "CREATED" ? "PENDING" : x.status === "REFUND_DUE" ? "REJECTED" : "CLOSED"}`}>{PAY_ES[x.status]}</span>
+                    {x.error && <div className="muted small">{x.error}</div>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {payments.length === 0 && <div className="empty">Aún no hay pagos en línea.</div>}
+          <p className="muted small">«Devolver» significa que el procesador cobró una factura que ya estaba pagada o anulada: reembolsa desde el portal de MonCash o Stripe.</p>
         </div>
       )}
 

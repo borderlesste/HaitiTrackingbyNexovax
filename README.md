@@ -24,6 +24,11 @@ Ver `docs/especificacion/HaitiTracking-Especificacion-MobileFirst-v1.0.md`.
 - El proveedor SMS (Twilio o Vonage) se configura en la misma pantalla de Phone.
 - Las cuentas antiguas con correo siguen entrando con su correo.
 
+## Cobro en línea de planes
+
+Las facturas de planes se pagan desde la app con **MonCash Business** (HTG) y, opcionalmente, tarjeta vía **Stripe** (USD).
+Configuración, procesadores evaluados y despliegue de la función `billing-payments`: [docs/cobro-en-linea.md](docs/cobro-en-linea.md).
+
 ## Compilar la app móvil
 
 1. Copia `apps/mobile/env.example.json` a `apps/mobile/env.json` con la URL y la clave publicable de Supabase.
@@ -38,4 +43,4 @@ Los correos de Supabase (confirmación y recuperación) abren la app con `com.ne
 
 ## Pruebas de seguridad locales
 
-Ejecuta `bash supabase/tests/run-local.sh` con Docker local y `node --test supabase/tests/moncash_handler.test.mjs` con Node.js. Para generar un inventario del esquema de prueba, pasa un nombre de archivo, por ejemplo `bash supabase/tests/run-local.sh haiti-local.jsonl`. [Informe de auditoría](docs/auditoria-seguridad-haiti-tracking.md)
+Ejecuta `bash supabase/tests/run-local.sh` con Docker local y `node --test supabase/tests/moncash_handler.test.mjs supabase/tests/billing_payments.test.mjs` con Node.js. Para generar un inventario del esquema de prueba, pasa un nombre de archivo, por ejemplo `bash supabase/tests/run-local.sh haiti-local.jsonl`. [Informe de auditoría](docs/auditoria-seguridad-haiti-tracking.md)
