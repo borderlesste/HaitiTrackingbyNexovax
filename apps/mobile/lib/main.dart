@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/guest.dart';
 import 'core/profile_context.dart';
 import 'core/theme.dart';
 import 'features/company/company_shell.dart';
@@ -36,6 +37,7 @@ Future<void> main() async {
     await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
   }
   await ProfileContext.load();
+  await Guest.load();
   runApp(const HaitiTrackingApp());
 }
 
@@ -53,7 +55,7 @@ class HaitiTrackingApp extends StatelessWidget {
   }
 }
 
-/// Muestra la bienvenida (y desde ahí el login) o la app según haya sesión. Si se abre el enlace de recuperación, pide la nueva contraseña.
+/// Muestra la bienvenida, la app en modo invitado o la app con cuenta. Si se abre el enlace de recuperación, pide la nueva contraseña.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -71,7 +73,14 @@ class _AuthGateState extends State<AuthGate> {
       stream: auth.onAuthStateChange,
       builder: (context, snap) {
         if (snap.data?.event == AuthChangeEvent.passwordRecovery) _recovering = true;
-        if (auth.currentSession == null) return const WelcomeScreen();
+        if (auth.currentSession == null) {
+          // Sin cuenta: bienvenida, o la app en modo invitado si eligió explorar.
+          return ValueListenableBuilder<bool>(
+            valueListenable: Guest.active,
+            builder: (context, guest, _) => guest ? const HomeShell() : const WelcomeScreen(),
+          );
+        }
+        if (Guest.active.value) Future.microtask(() => Guest.set(false));
         if (_recovering) return NewPasswordScreen(onDone: () => setState(() => _recovering = false));
         return ValueListenableBuilder<AppProfile>(
           valueListenable: ProfileContext.current,

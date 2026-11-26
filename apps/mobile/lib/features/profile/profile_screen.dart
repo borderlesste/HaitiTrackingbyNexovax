@@ -127,7 +127,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final p = _profile;
     final name = p?.fullName.isNotEmpty == true ? p!.fullName : ((user?.userMetadata?['full_name'] as String?) ?? 'Mi cuenta');
     final contact = (user?.email?.isNotEmpty ?? false) ? user!.email! : formatHaitiPhone(p?.phone);
-    final phoneOk = user?.phoneConfirmedAt != null;
+    final phoneOk = p?.phoneVerified == true;
     final s = _stats;
     return RefreshIndicator(
       onRefresh: _load,
@@ -197,7 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _SettingTile(
                 leading: const MonCashBadge(size: 36),
                 title: 'Mi MonCash',
-                subtitle: phoneOk ? maskPhone(user?.phone) : 'Sin verificar',
+                subtitle: phoneOk ? maskPhone(p?.row['moncash_phone'] as String?) : 'Se verifica al retirar',
                 badge: phoneOk
                     ? const StatusChip('Verificado', tone: ChipTone.ok)
                     : const StatusChip('Verificar', tone: ChipTone.review),

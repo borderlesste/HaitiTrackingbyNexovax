@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/account.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
@@ -31,13 +32,6 @@ Future<WithdrawalSettings> loadWithdrawalSettings() async {
   }
 }
 
-/// Teléfono verificado por SMS (formato +509...), o null.
-String? verifiedPhone() {
-  final u = Supabase.instance.client.auth.currentUser;
-  if (u == null || u.phoneConfirmedAt == null || (u.phone ?? '').isEmpty) return null;
-  return u.phone!.startsWith('+') ? u.phone : '+${u.phone}';
-}
-
 // ---------------------------------------------------------------------------
 // 1. Monto y cuenta MonCash
 // ---------------------------------------------------------------------------
@@ -50,6 +44,7 @@ class WithdrawAmountScreen extends StatefulWidget {
 }
 
 class _WithdrawAmountScreenState extends State<WithdrawAmountScreen> {
+  String? _phone;
   final _form = GlobalKey<FormState>();
   final _amount = TextEditingController();
   WithdrawalSettings _settings = const WithdrawalSettings();
@@ -58,6 +53,7 @@ class _WithdrawAmountScreenState extends State<WithdrawAmountScreen> {
   @override
   void initState() {
     super.initState();
+    _loadPhone();
     loadWithdrawalSettings().then((s) {
       if (mounted) {
         setState(() {
@@ -66,6 +62,11 @@ class _WithdrawAmountScreenState extends State<WithdrawAmountScreen> {
         });
       }
     });
+  }
+
+  Future<void> _loadPhone() async {
+    final p = await loadMoncashPhone();
+    if (mounted) setState(() => _phone = p);
   }
 
   @override
@@ -85,7 +86,7 @@ class _WithdrawAmountScreenState extends State<WithdrawAmountScreen> {
 
   void _continue() {
     if (!_form.currentState!.validate()) return;
-    final phone = verifiedPhone();
+    final phone = _phone;
     if (phone == null) return;
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => WithdrawConfirmScreen(amountCents: cents(_amount.text.replaceAll(',', '.').trim()), phone: phone),
@@ -94,7 +95,7 @@ class _WithdrawAmountScreenState extends State<WithdrawAmountScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final phone = verifiedPhone();
+    final phone = _phone;
     return HtScaffold(
       background: Colors.white,
       body: Form(
@@ -156,7 +157,7 @@ class _WithdrawAmountScreenState extends State<WithdrawAmountScreen> {
               OutlinedButton.icon(
                 onPressed: () async {
                   await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VerifyPhoneScreen()));
-                  if (mounted) setState(() {});
+                  _loadPhone();
                 },
                 icon: const Icon(Icons.verified_user_outlined),
                 label: const Text('Verificar mi número MonCash'),

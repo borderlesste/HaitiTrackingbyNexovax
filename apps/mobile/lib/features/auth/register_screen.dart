@@ -7,13 +7,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/account.dart';
 import '../../core/otp_input.dart';
+import '../../core/profile_context.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 
-/// Registro por pasos: datos básicos → código SMS → perfil → cuenta creada.
-/// La cuenta se crea con teléfono + contraseña; Supabase envía el código por SMS (Twilio).
+/// Registro por pasos: datos básicos → perfil → cuenta creada.
+/// La cuenta se crea con teléfono + contraseña, sin código SMS. El paso del código solo aparece si
+/// Supabase todavía exige confirmar el teléfono al registrarse. El número se verifica al retirar fondos.
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, this.profile = AppProfile.collaborator});
+
+  /// Perfil que eligió la persona (colaborador, empresa o desarrollador).
+  final AppProfile profile;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -22,6 +27,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   int _step = 0;
   String _phone = '';
+  late AppProfile _profile = widget.profile;
 
   void _next() => setState(() => _step++);
 
@@ -50,14 +56,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: switch (_step) {
             0 => _BasicDataStep(
                 key: const ValueKey(0),
-                onSent: (phone) {
+                profile: _profile,
+                onProfile: (p) => setState(() => _profile = p),
+                onSent: (phone, signedIn) {
                   _phone = phone;
-                  _next();
+                  setState(() => _step = signedIn ? 2 : 1);
                 },
               ),
             1 => _VerifyStep(key: const ValueKey(1), phone: _phone, onVerified: _next),
-            2 => _ProfileStep(key: const ValueKey(2), onDone: _next),
-            _ => const _CreatedStep(key: ValueKey(3)),
+            2 => _ProfileStep(key: const ValueKey(2), profile: _profile, onDone: _next),
+            _ => _CreatedStep(key: const ValueKey(3), profile: _profile),
           },
         ),
       ),
@@ -69,8 +77,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 // Paso 1: datos básicos
 // ---------------------------------------------------------------------------
 class _BasicDataStep extends StatefulWidget {
-  const _BasicDataStep({super.key, required this.onSent});
-  final ValueChanged<String> onSent;
+  const _BasicDataStep({super.key, required this.profile, required this.onProfile, required this.onSent});
+  final AppProfile profile;
+  final ValueChanged<AppProfile> onProfile;
+  final void Function(String phone, bool signedIn) onSent;
 
   @override
   State<_BasicDataStep> createState() => _BasicDataStepState();
@@ -105,13 +115,13 @@ class _BasicDataStepState extends State<_BasicDataStep> {
     try {
       final first = _first.text.trim();
       final last = _last.text.trim();
-      await Supabase.instance.client.auth.signUp(
+      final res = await Supabase.instance.client.auth.signUp(
         phone: phone,
         password: _password.text,
         channel: OtpChannel.sms,
         data: {'full_name': '$first $last', 'first_name': first, 'last_name': last},
       );
-      widget.onSent(phone);
+      widget.onSent(phone, res.session != null);
     } on AuthException catch (e) {
       setState(() => _error = e.message.contains('already') ? 'Ese número ya tiene una cuenta. Inicia sesión.' : e.message);
     } catch (_) {
@@ -123,15 +133,27 @@ class _BasicDataStepState extends State<_BasicDataStep> {
 
   @override
   Widget build(BuildContext context) {
+    final collaborator = widget.profile == AppProfile.collaborator;
     return Form(
       key: _form,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
         children: [
-          const ScreenTitle('Crear una cuenta',
+          ScreenTitle('Crear una cuenta',
               icon: Icons.person_add_alt,
-              subtitle: 'Únete como colaborador y comienza a registrar lugares en tu comunidad.'),
-          const SizedBox(height: 22),
+              subtitle: switch (widget.profile) {
+                AppProfile.collaborator => 'Únete como colaborador y comienza a registrar lugares en tu comunidad.',
+                AppProfile.company => 'Crea tu cuenta de empresa para gestionar tus establecimientos.',
+                AppProfile.developer => 'Crea tu cuenta de desarrollador para usar la API de lugares.',
+              }),
+          const SizedBox(height: 16),
+          const _Label('Quiero ser'),
+          FilterPills(
+            labels: [for (final p in AppProfile.values) profileInfo[p]!.$2],
+            selected: widget.profile.index,
+            onSelected: (i) => widget.onProfile(AppProfile.values[i]),
+          ),
+          const SizedBox(height: 16),
           const _Label('Nombre(s)'),
           TextFormField(
             controller: _first,
@@ -148,7 +170,7 @@ class _BasicDataStepState extends State<_BasicDataStep> {
             validator: (v) => (v == null || v.trim().length < 2) ? 'Escribe tu apellido' : null,
           ),
           const SizedBox(height: 14),
-          const _Label('Número de teléfono (MonCash)'),
+          _Label(collaborator ? 'Número de teléfono (MonCash)' : 'Número de teléfono'),
           TextFormField(
             controller: _phone,
             keyboardType: TextInputType.phone,
@@ -177,7 +199,10 @@ class _BasicDataStepState extends State<_BasicDataStep> {
             validator: (v) => (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
           ),
           const SizedBox(height: 16),
-          const InfoBanner('Usaremos tu número para verificar tu cuenta y enviarte tus recompensas por MonCash.'),
+          InfoBanner(collaborator
+              ? 'Con tu número y tu contraseña iniciarás sesión. No hace falta ningún código ahora: '
+                  'solo te pediremos verificarlo por SMS cuando quieras retirar tus recompensas por MonCash.'
+              : 'Con tu número y tu contraseña iniciarás sesión.'),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(_error!, style: const TextStyle(color: HtColors.red)),
@@ -313,7 +338,8 @@ class _VerifyStepState extends State<_VerifyStep> {
 // Paso 3: completar perfil
 // ---------------------------------------------------------------------------
 class _ProfileStep extends StatefulWidget {
-  const _ProfileStep({super.key, required this.onDone});
+  const _ProfileStep({super.key, required this.profile, required this.onDone});
+  final AppProfile profile;
   final VoidCallback onDone;
 
   @override
@@ -352,6 +378,7 @@ class _ProfileStepState extends State<_ProfileStep> {
     try {
       final user = Supabase.instance.client.auth.currentUser!;
       final meta = user.userMetadata ?? const {};
+      final collaborator = widget.profile == AppProfile.collaborator;
       await updateMyProfile({
         'first_name': meta['first_name'],
         'last_name': meta['last_name'],
@@ -359,9 +386,10 @@ class _ProfileStepState extends State<_ProfileStep> {
         'phone': user.phone == null || user.phone!.isEmpty ? null : '+${user.phone}',
         'birth_date': DateFormat('yyyy-MM-dd').format(_birth!),
         'commune': _commune,
-        'collaborator_type': _type,
+        if (collaborator) 'collaborator_type': _type,
         'terms_accepted_at': DateTime.now().toUtc().toIso8601String(),
       });
+      await ProfileContext.set(widget.profile);
       widget.onDone();
     } catch (_) {
       setState(() => _error = 'No se pudo guardar tu perfil. Inténtalo de nuevo.');
@@ -424,14 +452,16 @@ class _ProfileStepState extends State<_ProfileStep> {
             validator: (v) => v == null ? 'Elige tu comuna' : null,
           ),
           const SizedBox(height: 14),
-          const _Label('¿Cómo te identificas?'),
-          DropdownButtonFormField<String>(
-            initialValue: _type,
-            isExpanded: true,
-            decoration: const InputDecoration(prefixIcon: Icon(Icons.groups_outlined)),
-            items: [for (final c in collaboratorTypes) DropdownMenuItem(value: c, child: Text(c))],
-            onChanged: (v) => setState(() => _type = v),
-          ),
+          if (widget.profile == AppProfile.collaborator) ...[
+            const _Label('¿Cómo te identificas?'),
+            DropdownButtonFormField<String>(
+              initialValue: _type,
+              isExpanded: true,
+              decoration: const InputDecoration(prefixIcon: Icon(Icons.groups_outlined)),
+              items: [for (final c in collaboratorTypes) DropdownMenuItem(value: c, child: Text(c))],
+              onChanged: (v) => setState(() => _type = v),
+            ),
+          ],
           const SizedBox(height: 16),
           const Divider(),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -469,7 +499,8 @@ class _ProfileStepState extends State<_ProfileStep> {
 // Paso 4: cuenta creada
 // ---------------------------------------------------------------------------
 class _CreatedStep extends StatelessWidget {
-  const _CreatedStep({super.key});
+  const _CreatedStep({super.key, required this.profile});
+  final AppProfile profile;
 
   @override
   Widget build(BuildContext context) {
@@ -481,13 +512,17 @@ class _CreatedStep extends StatelessWidget {
         const Text('¡Cuenta creada!',
             textAlign: TextAlign.center, style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: HtColors.text)),
         const SizedBox(height: 10),
-        const Text(
-          'Tu registro ha sido completado con éxito. Ya puedes comenzar a realizar aportes.',
+        Text(
+          switch (profile) {
+            AppProfile.collaborator => 'Tu registro ha sido completado con éxito. Ya puedes comenzar a realizar aportes.',
+            AppProfile.company => 'Tu cuenta de empresa está lista. Ya puedes registrar tus establecimientos.',
+            AppProfile.developer => 'Tu cuenta de desarrollador está lista. Ya puedes crear tu primer proyecto.',
+          },
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 16, color: HtColors.muted, height: 1.4),
+          style: const TextStyle(fontSize: 16, color: HtColors.muted, height: 1.4),
         ),
         const SizedBox(height: 24),
-        const HtCard(
+        if (profile == AppProfile.collaborator) const HtCard(
           color: HtColors.blueSoft,
           child: Row(children: [
             Icon(Icons.savings_outlined, color: HtColors.amber, size: 36),

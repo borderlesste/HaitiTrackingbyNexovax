@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/guest.dart';
 import '../../core/profile_context.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
@@ -82,6 +83,30 @@ class _HomeShellState extends State<HomeShell> {
           TextButton(onPressed: _load, child: const Text('Reintentar')),
         ]),
       );
+    } else if (Guest.isGuest && tab == HomeTab.contributions) {
+      body = const GuestGate(
+        title: 'Mis aportes',
+        icon: Icons.assignment_outlined,
+        description: 'Aquí verás cada lugar que registres y el estado de su revisión.',
+        points: [
+          'Toma una foto del lugar y marca su ubicación con el GPS.',
+          'Funciona sin conexión: tus aportes se envían cuando vuelve la señal.',
+          'Sigue la revisión: en revisión, aprobado o con cambios pedidos.',
+        ],
+      );
+    } else if (Guest.isGuest && tab == HomeTab.rewards) {
+      body = const GuestGate(
+        title: 'Mis recompensas',
+        icon: Icons.savings,
+        description: 'Cada aporte aprobado suma recompensas en dólares a tu saldo.',
+        points: [
+          'Bonos extra al completar misiones enteras.',
+          'Retira tu saldo a tu cuenta MonCash.',
+          'Solo pediremos verificar tu número por SMS cuando quieras retirar.',
+        ],
+      );
+    } else if (Guest.isGuest && tab == HomeTab.profile) {
+      body = const _GuestProfile();
     } else {
       body = switch (tab) {
         HomeTab.home => MapScreen(missions: _missions, onRefresh: _load),
@@ -93,7 +118,7 @@ class _HomeShellState extends State<HomeShell> {
     }
     return HtScaffold(
       scaffoldKey: _scaffold,
-      appBar: HtAppBar(showBack: false, showBell: true, onMenu: () => _scaffold.currentState?.openDrawer()),
+      appBar: HtAppBar(showBack: false, showBell: !Guest.isGuest, onMenu: () => _scaffold.currentState?.openDrawer()),
       drawer: const _HomeDrawer(),
       body: body,
       bottomNavigationBar: NavigationBar(
@@ -124,6 +149,7 @@ class _HomeDrawer extends StatelessWidget {
       HomeShell.tab.value = t;
     }
 
+    if (Guest.isGuest) return _GuestDrawer(go: go);
     return Drawer(
       child: ListView(padding: EdgeInsets.zero, children: [
         DrawerHeader(
@@ -164,6 +190,99 @@ class _HomeDrawer extends StatelessWidget {
           onTap: () => Supabase.instance.client.auth.signOut(),
         ),
       ]),
+    );
+  }
+}
+
+/// Menú lateral del invitado: explorar y crear una cuenta.
+class _GuestDrawer extends StatelessWidget {
+  const _GuestDrawer({required this.go});
+  final void Function(HomeTab) go;
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: ListView(padding: EdgeInsets.zero, children: [
+        const DrawerHeader(
+          decoration: BoxDecoration(color: HtColors.navy),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
+            HtBrand(size: .9),
+            SizedBox(height: 14),
+            Text('Modo invitado', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600)),
+          ]),
+        ),
+        ListTile(leading: const Icon(Icons.home_outlined), title: const Text('Inicio'), onTap: () => go(HomeTab.home)),
+        ListTile(leading: const Icon(Icons.location_on_outlined), title: const Text('Misiones'), onTap: () => go(HomeTab.missions)),
+        ListTile(leading: const Icon(Icons.savings_outlined), title: const Text('Cómo se gana'), onTap: () => go(HomeTab.rewards)),
+        const Divider(),
+        for (final p in AppProfile.values)
+          ListTile(
+            leading: Icon(profileInfo[p]!.$1, color: HtColors.blue),
+            title: Text('Ser ${profileInfo[p]!.$2.toLowerCase()}'),
+            subtitle: Text(profileInfo[p]!.$3),
+            onTap: () {
+              Navigator.pop(context);
+              openRegister(context, profile: p);
+            },
+          ),
+        const Divider(),
+        ListTile(
+          leading: const Icon(Icons.login),
+          title: const Text('Iniciar sesión'),
+          onTap: () {
+            Navigator.pop(context);
+            openLogin(context);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.exit_to_app, color: HtColors.muted),
+          title: const Text('Salir del modo invitado'),
+          onTap: () {
+            Navigator.pop(context);
+            Guest.set(false);
+          },
+        ),
+      ]),
+    );
+  }
+}
+
+/// Pestaña Perfil del invitado: elegir cómo quiere participar.
+class _GuestProfile extends StatelessWidget {
+  const _GuestProfile();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+      children: [
+        const ScreenTitle('Únete a Haiti Tracking',
+            icon: Icons.person_outline, subtitle: 'Estás explorando sin cuenta. Elige cómo quieres participar.'),
+        const SizedBox(height: 16),
+        for (final p in AppProfile.values) ...[
+          HtCard(
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: IconTile(profileInfo[p]!.$1),
+              title: Text(profileInfo[p]!.$2, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+              subtitle: Text(profileInfo[p]!.$3),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => openRegister(context, profile: p),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 6),
+        OutlinedButton.icon(
+          onPressed: () => openLogin(context),
+          icon: const Icon(Icons.login),
+          label: const Text('Ya tengo cuenta: iniciar sesión'),
+        ),
+        const SizedBox(height: 12),
+        const Text('Registrarte es gratis y no pide ningún código. '
+            'El número solo se verifica por SMS si eres colaborador y quieres retirar fondos.',
+            textAlign: TextAlign.center, style: TextStyle(color: HtColors.muted, height: 1.35)),
+      ],
     );
   }
 }

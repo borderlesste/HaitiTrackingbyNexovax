@@ -9,7 +9,9 @@ import '../../core/otp_input.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 
-/// Agrega o cambia el número MonCash de la cuenta y lo verifica con un código SMS.
+/// Verifica por SMS el número MonCash antes de retirar. Es el único momento en que se pide un código.
+/// Si es el mismo número de la cuenta se envía un código de inicio de sesión; si es otro, se cambia el
+/// número de la cuenta con su propio código. Después el servidor registra la verificación.
 class VerifyPhoneScreen extends StatefulWidget {
   const VerifyPhoneScreen({super.key});
 
@@ -21,10 +23,23 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
   final _phone = TextEditingController();
   final _code = TextEditingController();
   String? _sentTo;
+  bool _sameAsAccount = false;
   bool _busy = false;
   String? _error;
   Timer? _timer;
   int _seconds = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final p = Supabase.instance.client.auth.currentUser?.phone ?? '';
+    if (p.isNotEmpty) _phone.text = formatHaitiPhone(p.startsWith('+') ? p : '+$p').replaceFirst('+509 ', '');
+  }
+
+  String? get _accountPhone {
+    final p = Supabase.instance.client.auth.currentUser?.phone ?? '';
+    return p.isEmpty ? null : (p.startsWith('+') ? p : '+$p');
+  }
 
   @override
   void dispose() {
@@ -42,8 +57,17 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
       _error = null;
     });
     try {
-      await Supabase.instance.client.auth.updateUser(UserAttributes(phone: phone));
-      setState(() => _sentTo = phone);
+      final auth = Supabase.instance.client.auth;
+      final same = phone == _accountPhone && auth.currentUser?.phoneConfirmedAt != null;
+      if (same) {
+        await auth.signInWithOtp(phone: phone, shouldCreateUser: false);
+      } else {
+        await auth.updateUser(UserAttributes(phone: phone));
+      }
+      setState(() {
+        _sentTo = phone;
+        _sameAsAccount = same;
+      });
       _timer?.cancel();
       _seconds = 60;
       _timer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -66,13 +90,17 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
       _error = null;
     });
     try {
-      await Supabase.instance.client.auth.verifyOTP(type: OtpType.phoneChange, phone: _sentTo!, token: _code.text);
-      await updateMyProfile({'phone': _sentTo});
+      final db = Supabase.instance.client;
+      await db.auth.verifyOTP(
+          type: _sameAsAccount ? OtpType.sms : OtpType.phoneChange, phone: _sentTo!, token: _code.text);
+      await db.rpc('confirm_moncash_phone');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Número MonCash verificado.')));
       Navigator.pop(context, true);
     } on AuthException {
       setState(() => _error = 'Código incorrecto o vencido.');
+    } on PostgrestException catch (e) {
+      setState(() => _error = e.message);
     } catch (_) {
       setState(() => _error = 'Sin conexión. Inténtalo de nuevo.');
     } finally {
@@ -89,7 +117,7 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
         children: [
           const ScreenTitle('Mi MonCash',
               icon: Icons.verified_user_outlined,
-              subtitle: 'Verifica el número donde recibirás tus recompensas. Te enviaremos un código por SMS.'),
+              subtitle: 'Para retirar recompensas verifica el número donde las recibirás. Te enviaremos un código por SMS.'),
           const SizedBox(height: 22),
           TextField(
             controller: _phone,
@@ -103,6 +131,11 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
               hintText: '37 12 34 56',
             ),
           ),
+          if (_sentTo == null && _accountPhone != null) ...[
+            const SizedBox(height: 10),
+            const Text('Si escribes otro número, también pasará a ser el número para iniciar sesión.',
+                style: TextStyle(color: HtColors.muted, fontSize: 13)),
+          ],
           if (_sentTo != null) ...[
             const SizedBox(height: 22),
             Text('Código enviado a ${formatHaitiPhone(_sentTo)}', style: const TextStyle(fontWeight: FontWeight.w700)),

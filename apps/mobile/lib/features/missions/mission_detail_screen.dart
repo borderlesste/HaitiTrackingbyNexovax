@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import '../../core/money.dart';
+import '../../core/guest.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../contributions/new_contribution_screen.dart';
@@ -142,8 +143,14 @@ class MissionDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           FilledButton.icon(
-            onPressed: () =>
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewContributionScreen(mission: m))),
+            onPressed: () {
+              if (!requireAccount(context,
+                  reason: 'Para hacer misiones y ganar recompensas necesitas una cuenta de colaborador. '
+                      'Solo toma un minuto y no hace falta ningún código.')) {
+                return;
+              }
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewContributionScreen(mission: m)));
+            },
             icon: const Icon(Icons.play_arrow),
             label: const Text('Iniciar misión'),
           ),

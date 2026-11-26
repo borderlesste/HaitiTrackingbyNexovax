@@ -13,12 +13,18 @@ Ver `docs/especificacion/HaitiTracking-Especificacion-MobileFirst-v1.0.md`.
 > La app ya permite solicitarlos: se activan con `update platform_settings set value = jsonb_set(value, '{enabled}', 'true') where key = 'withdrawals';`
 > y cada solicitud queda en `withdrawal_requests` para pago manual por el equipo.
 
-## Registro por teléfono (SMS)
+## Modo invitado, registro y verificación por SMS
 
-Las cuentas nuevas se crean con teléfono + contraseña y se verifican con un código SMS.
-En Supabase: Authentication → Sign In / Providers → Phone → activar, elegir **Twilio** y pegar
-Account SID, Auth Token y Message Service SID. Sin esto, el paso «Verificar tu teléfono» no recibe códigos.
-Las cuentas antiguas con correo siguen entrando con su correo.
+- Sin cuenta se puede explorar la app (mapa, misiones, detalle). Hacer misiones, ver recompensas o usar
+  los perfiles Empresa / Desarrollador pide crear una cuenta.
+- Las cuentas nuevas se crean con teléfono + contraseña **sin código SMS**. Para eso, en Supabase:
+  Authentication → Sign In / Providers → Phone, desactiva **Enable phone confirmations**. Mientras siga
+  activado, la app muestra el paso del código como antes.
+- El SMS solo se pide al colaborador que quiere retirar: la app envía el código, y tras verificarlo llama a
+  `confirm_moncash_phone()`, que solo acepta sesiones abiertas con código SMS (amr `otp`) de los últimos 15 min
+  y guarda el número en `moncash_verifications`. `request_withdrawal` paga solo a ese número.
+- El proveedor SMS (Twilio o Vonage) se configura en la misma pantalla de Phone.
+- Las cuentas antiguas con correo siguen entrando con su correo.
 
 ## Compilar la app móvil
 

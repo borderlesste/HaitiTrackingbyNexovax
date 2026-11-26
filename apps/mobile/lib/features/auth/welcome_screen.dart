@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/guest.dart';
 import '../../core/theme.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
@@ -11,11 +12,12 @@ import 'register_screen.dart';
 enum WelcomeLang { es, fr, ht, en }
 
 class _WelcomeTexts {
-  const _WelcomeTexts({required this.slides, required this.start, required this.haveAccount, required this.signIn});
+  const _WelcomeTexts({required this.slides, required this.start, required this.haveAccount, required this.signIn, required this.explore});
   final List<String> slides;
   final String start;
   final String haveAccount;
   final String signIn;
+  final String explore;
 }
 
 const _texts = <WelcomeLang, _WelcomeTexts>{
@@ -28,6 +30,7 @@ const _texts = <WelcomeLang, _WelcomeTexts>{
     start: 'Comenzar',
     haveAccount: '¿Ya tienes una cuenta?',
     signIn: 'Iniciar sesión',
+    explore: 'Explorar sin registrarme',
   ),
   WelcomeLang.fr: _WelcomeTexts(
     slides: [
@@ -38,6 +41,7 @@ const _texts = <WelcomeLang, _WelcomeTexts>{
     start: 'Commencer',
     haveAccount: 'Vous avez déjà un compte ?',
     signIn: 'Se connecter',
+    explore: 'Explorer sans compte',
   ),
   WelcomeLang.ht: _WelcomeTexts(
     slides: [
@@ -48,6 +52,7 @@ const _texts = <WelcomeLang, _WelcomeTexts>{
     start: 'Kòmanse',
     haveAccount: 'Ou gen yon kont deja?',
     signIn: 'Konekte',
+    explore: 'Gade san kont',
   ),
   WelcomeLang.en: _WelcomeTexts(
     slides: [
@@ -58,6 +63,7 @@ const _texts = <WelcomeLang, _WelcomeTexts>{
     start: 'Get started',
     haveAccount: 'Already have an account?',
     signIn: 'Sign in',
+    explore: 'Explore without an account',
   ),
 };
 
@@ -166,7 +172,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               const Expanded(child: _Panorama()),
               const SizedBox(height: 8),
               _Dots(count: t.slides.length, active: _page),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: FilledButton(
@@ -181,7 +187,17 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   child: Text(t.start),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: OutlinedButton.icon(
+                  onPressed: () => Guest.set(true),
+                  icon: const Icon(Icons.explore_outlined),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), shape: const StadiumBorder()),
+                  label: Text(t.explore),
+                ),
+              ),
+              const SizedBox(height: 2),
               Wrap(
                 alignment: WrapAlignment.center,
                 crossAxisAlignment: WrapCrossAlignment.center,

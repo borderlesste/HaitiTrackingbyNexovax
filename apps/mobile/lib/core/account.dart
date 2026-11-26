@@ -73,10 +73,12 @@ Future<MyProfile> loadMyProfile() async {
   final uid = db.auth.currentUser!.id;
   final row = await db.from('profiles').select().eq('id', uid).single();
   final authPhone = db.auth.currentUser?.phone;
+  final moncash = await loadMoncashPhone();
   return MyProfile({
     ...row,
-    // El teléfono verificado por SMS vive en auth.users.
-    'phone_verified': db.auth.currentUser?.phoneConfirmedAt != null,
+    // Verificado = confirmado con código SMS para retirar (no basta con registrarse).
+    'phone_verified': moncash != null,
+    if (moncash != null) 'moncash_phone': moncash,
     if ((row['phone'] as String?) == null && authPhone != null && authPhone.isNotEmpty) 'phone': '+$authPhone',
   });
 }
@@ -84,4 +86,20 @@ Future<MyProfile> loadMyProfile() async {
 Future<void> updateMyProfile(Map<String, dynamic> values) async {
   final db = Supabase.instance.client;
   await db.from('profiles').update(values).eq('id', db.auth.currentUser!.id);
+}
+
+/// Número MonCash verificado por SMS (formato +509...), o null si falta verificarlo.
+/// Solo cuenta si sigue siendo el número de la cuenta.
+Future<String?> loadMoncashPhone() async {
+  final db = Supabase.instance.client;
+  final user = db.auth.currentUser;
+  if (user == null) return null;
+  try {
+    final row = await db.from('moncash_verifications').select('phone').eq('user_id', user.id).maybeSingle();
+    final phone = row?['phone'] as String?;
+    final authPhone = (user.phone ?? '').isEmpty ? null : (user.phone!.startsWith('+') ? user.phone : '+${user.phone}');
+    return phone != null && phone == authPhone ? phone : null;
+  } catch (_) {
+    return null;
+  }
 }

@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/guest.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../home/home_shell.dart';
@@ -38,6 +39,7 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _selected = widget.missions.isEmpty ? null : widget.missions.first;
+    if (Guest.isGuest) return;
     loadWithdrawableCents().then((c) {
       if (mounted) setState(() => _balanceCents = c);
     }).catchError((_) {});
@@ -100,7 +102,7 @@ class _MapScreenState extends State<MapScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Hola, ${first.isEmpty ? 'Colaborador' : first}',
+                  Text(Guest.isGuest ? 'Hola, bienvenido' : 'Hola, ${first.isEmpty ? 'Colaborador' : first}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: HtColors.text)),
