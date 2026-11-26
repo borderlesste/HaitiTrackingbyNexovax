@@ -6,18 +6,21 @@ import '../../core/ui.dart';
 
 enum TicketKind { question, incident, claim, deletion }
 
-const _kindCode = {
-  TicketKind.question: 'QUESTION',
-  TicketKind.incident: 'INCIDENT',
-  TicketKind.claim: 'CLAIM',
-  TicketKind.deletion: 'ACCOUNT_DELETION',
+/// Categorías de support_tickets (definidas por el panel administrativo).
+const _kindCategory = {
+  TicketKind.question: 'GENERAL',
+  TicketKind.incident: 'GENERAL',
+  TicketKind.claim: 'COMPLAINT',
+  TicketKind.deletion: 'ACCOUNT',
 };
 
 const _kindLabel = {
-  'QUESTION': 'Consulta',
-  'INCIDENT': 'Incidencia',
-  'CLAIM': 'Reclamación',
-  'ACCOUNT_DELETION': 'Eliminar cuenta',
+  'GENERAL': 'Consulta',
+  'CONTRIBUTION': 'Aporte',
+  'REWARD': 'Recompensa',
+  'WITHDRAWAL': 'Retiro',
+  'ACCOUNT': 'Cuenta',
+  'COMPLAINT': 'Reclamación',
 };
 
 const _statusLabel = {
@@ -169,7 +172,7 @@ class _TicketRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final st = _statusLabel[t['status']] ?? ('${t['status']}', ChipTone.info);
-    final response = t['response'] as String?;
+    final response = t['admin_reply'] as String?;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -180,7 +183,9 @@ class _TicketRow extends StatelessWidget {
           ),
           StatusChip(st.$1, tone: st.$2),
         ]),
-        Text('${_kindLabel[t['kind']] ?? t['kind']} · ${fechaHora(DateTime.parse(t['created_at'] as String))}',
+        Text(
+            [if (t['code'] != null) t['code'], _kindLabel[t['category']] ?? t['category'], fechaHora(DateTime.parse(t['created_at'] as String))]
+                .join(' · '),
             style: const TextStyle(color: HtColors.muted, fontSize: 13)),
         if (response != null && response.isNotEmpty) ...[
           const SizedBox(height: 6),
@@ -233,11 +238,13 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
       final db = Supabase.instance.client;
       await db.from('support_tickets').insert({
         'user_id': db.auth.currentUser!.id,
-        'kind': _kindCode[_kind],
-        'subject': _subject.text.trim(),
+        'category': widget.contributionId != null
+            ? 'CONTRIBUTION'
+            : (widget.withdrawalId != null ? 'WITHDRAWAL' : _kindCategory[_kind]),
+        'subject': _kind == TicketKind.incident ? 'Incidencia: ${_subject.text.trim()}' : _subject.text.trim(),
         'message': _message.text.trim(),
-        if (widget.contributionId != null) 'contribution_id': widget.contributionId,
-        if (widget.withdrawalId != null) 'withdrawal_id': widget.withdrawalId,
+        if (widget.contributionId != null || widget.withdrawalId != null)
+          'related_id': widget.contributionId ?? widget.withdrawalId,
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solicitud enviada. Te responderemos pronto.')));
@@ -277,7 +284,7 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
             ],
             TextFormField(
               controller: _subject,
-              maxLength: 120,
+              maxLength: 150,
               decoration: const InputDecoration(labelText: 'Asunto'),
               validator: (v) => (v == null || v.trim().length < 3) ? 'Escribe un asunto' : null,
             ),

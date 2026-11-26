@@ -1,4 +1,4 @@
--- Pantallas del colaborador: corregir y reenviar aportes, y ayuda / soporte (incluye pedir borrar la cuenta).
+-- Pantallas del colaborador: corregir y reenviar aportes con "Requiere cambios" o "Rechazado".
 
 -- 1) Corrección de aportes con "Requiere cambios" o "Rechazado".
 alter table public.mission_contributions
@@ -26,9 +26,17 @@ declare
   v_uid uuid := auth.uid();
   c public.mission_contributions;
   p text;
+  v_restricted boolean := false;
 begin
   if v_uid is null then
     raise exception 'Sesión no iniciada';
+  end if;
+  -- Cuentas restringidas desde el panel (si esa función ya existe).
+  if to_regprocedure('public.is_restricted(uuid)') is not null then
+    execute 'select public.is_restricted($1)' into v_restricted using v_uid;
+    if v_restricted then
+      raise exception 'Tu cuenta está restringida. Contacta con soporte.' using errcode = '42501';
+    end if;
   end if;
 
   select * into c from public.mission_contributions where id = p_id for update;
@@ -83,43 +91,4 @@ $$;
 revoke all on function public.resubmit_contribution(uuid, text, text, text, text, double precision, double precision, numeric, timestamptz, text[]) from public, anon;
 grant execute on function public.resubmit_contribution(uuid, text, text, text, text, double precision, double precision, numeric, timestamptz, text[]) to authenticated;
 
--- 2) Ayuda y soporte: consultas, incidencias, reclamaciones y solicitudes de borrar la cuenta.
-create table if not exists public.support_tickets (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users (id) on delete cascade,
-  kind text not null check (kind in ('QUESTION', 'INCIDENT', 'CLAIM', 'ACCOUNT_DELETION')),
-  subject text not null check (length(trim(subject)) between 3 and 120),
-  message text not null check (length(trim(message)) between 5 and 2000),
-  contribution_id uuid references public.mission_contributions (id) on delete set null,
-  withdrawal_id uuid references public.withdrawal_requests (id) on delete set null,
-  status text not null default 'OPEN' check (status in ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED')),
-  response text,
-  responded_by uuid references auth.users (id),
-  responded_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create index if not exists support_tickets_user_idx on public.support_tickets (user_id, created_at desc);
-create index if not exists support_tickets_open_idx on public.support_tickets (status, created_at) where status in ('OPEN', 'IN_PROGRESS');
-
-alter table public.support_tickets enable row level security;
-
-drop policy if exists "soporte: ver los propios" on public.support_tickets;
-create policy "soporte: ver los propios" on public.support_tickets
-  for select to authenticated
-  using (user_id = (select auth.uid()) or public.has_role('admin'::public.app_role) or public.has_role('moderator'::public.app_role));
-
-drop policy if exists "soporte: crear los propios" on public.support_tickets;
-create policy "soporte: crear los propios" on public.support_tickets
-  for insert to authenticated
-  with check (user_id = (select auth.uid()) and status = 'OPEN' and response is null and responded_by is null);
-
-drop policy if exists "soporte: el equipo responde" on public.support_tickets;
-create policy "soporte: el equipo responde" on public.support_tickets
-  for update to authenticated
-  using (public.has_role('admin'::public.app_role) or public.has_role('moderator'::public.app_role))
-  with check (public.has_role('admin'::public.app_role) or public.has_role('moderator'::public.app_role));
-
-revoke delete on public.support_tickets from anon, authenticated;
-revoke all on public.support_tickets from anon;
+-- La tabla de Ayuda y soporte (support_tickets) la crea 20261126100000_panel_admin.sql; la app la usa tal cual.
