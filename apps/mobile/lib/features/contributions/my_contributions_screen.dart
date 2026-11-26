@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 import '../../core/ui.dart';
+import 'contribution_detail_screen.dart';
 import 'contribution_draft.dart';
 import 'contribution_service.dart';
 import 'contribution_widgets.dart';
@@ -69,31 +70,9 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
         _ => true,
       };
 
-  void _showDetail(Map<String, dynamic> c) {
-    final reason = c['review_reason'] as String?;
-    final mission = (c['missions'] as Map<String, dynamic>?)?['title'] as String?;
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(child: Text(c['name'] as String, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800))),
-              ContributionStatusChip(c['status'] as String?),
-            ]),
-            const SizedBox(height: 12),
-            KvRow('Categoría', c['category'] as String? ?? '', icon: Icons.storefront_outlined),
-            if (mission != null) KvRow('Misión', mission, icon: Icons.flag_outlined),
-            KvRow('Enviado', fechaHora(DateTime.parse(c['created_at'] as String)), icon: Icons.schedule),
-            if (reason != null && reason.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              InfoBanner('Motivo de la revisión: $reason', warning: true),
-            ],
-          ]),
-        ),
-      ),
-    );
+  Future<void> _showDetail(Map<String, dynamic> c) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ContributionDetailScreen(id: c['id'] as String)));
+    _load();
   }
 
   @override

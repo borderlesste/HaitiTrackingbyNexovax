@@ -93,3 +93,18 @@ class MissionsRepository {
 
 /// Total posible de la misión sin el símbolo: "2.25".
 String missionTotal(Mission m) => money(m.totalCents).substring(1);
+
+/// Misión a partir de la fila de `missions` (con `center` en EWKB) que llega unida a un aporte.
+Mission? missionFromJoin(Map<String, dynamic>? r, (double, double)? Function(Object?) parsePoint) {
+  if (r == null) return null;
+  final pt = parsePoint(r['center']);
+  if (pt == null) return null;
+  return Mission.fromRow({
+    ...r,
+    'code': r['code'] ?? '',
+    'type': r['type'] ?? 'BATCH_ZONE',
+    'lat': pt.$1,
+    'lng': pt.$2,
+    'distance_m': 0,
+  });
+}

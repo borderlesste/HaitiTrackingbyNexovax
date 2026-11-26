@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -171,5 +172,41 @@ extension MissionContributions on ContributionService {
         .eq('user_id', Supabase.instance.client.auth.currentUser!.id)
         .order('created_at');
     return List<Map<String, dynamic>>.from(rows);
+  }
+}
+
+/// Punto (lat, lng) de una columna geography que PostgREST devuelve como EWKB en hexadecimal.
+(double, double)? parseEwkbPoint(Object? v) {
+  if (v is Map && v['coordinates'] is List) {
+    final c = v['coordinates'] as List;
+    return ((c[1] as num).toDouble(), (c[0] as num).toDouble());
+  }
+  if (v is! String || v.length < 42) return null;
+  try {
+    final bytes = <int>[for (var i = 0; i + 1 < v.length; i += 2) int.parse(v.substring(i, i + 2), radix: 16)];
+    final data = ByteData.sublistView(Uint8List.fromList(bytes));
+    final endian = bytes[0] == 1 ? Endian.little : Endian.big;
+    final type = data.getUint32(1, endian);
+    var offset = 5;
+    if (type & 0x20000000 != 0) offset += 4; // SRID
+    if (type & 0xFF != 1) return null; // solo puntos
+    final x = data.getFloat64(offset, endian);
+    final y = data.getFloat64(offset + 8, endian);
+    return (y, x);
+  } catch (_) {
+    return null;
+  }
+}
+
+extension ContributionDetail on ContributionService {
+  /// Un aporte propio con todos sus datos.
+  Future<Map<String, dynamic>> contribution(String id) async {
+    final row = await Supabase.instance.client
+        .from('mission_contributions')
+        .select('*, missions(id, code, type, title, description, commune, radius_m, individual_reward_usd, '
+            'completion_bonus_usd, required_approved_contributions, requirements, end_at, center, requires_on_site_evidence)')
+        .eq('id', id)
+        .single();
+    return Map<String, dynamic>.from(row);
   }
 }
