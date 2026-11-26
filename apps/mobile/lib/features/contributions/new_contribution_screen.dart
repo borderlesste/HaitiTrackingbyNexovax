@@ -1,6 +1,7 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -248,7 +249,7 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
                             backgroundColor: Colors.white,
                             child: IconButton(
                               icon: const Icon(Icons.close, color: HtColors.text),
-                              tooltip: 'Quitar foto',
+                              tooltip: trn('Quitar foto'),
                               onPressed: () => setState(() => _photo = null),
                             ),
                           ),
@@ -285,9 +286,9 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
                 const _FieldLabel('Nombre'),
                 TextFormField(
                   controller: _name,
-                  decoration: const InputDecoration(hintText: 'Mini Market Belle Vue'),
+                  decoration: InputDecoration(hintText: trn('Mini Market Belle Vue')),
                   textCapitalization: TextCapitalization.words,
-                  validator: (v) => (v == null || v.trim().length < 2) ? 'Escribe el nombre' : null,
+                  validator: (v) => (v == null || v.trim().length < 2) ? tr('Escribe el nombre') : null,
                 ),
                 const SizedBox(height: 12),
                 const _FieldLabel('Categoría'),
@@ -298,20 +299,20 @@ class _NewContributionScreenState extends State<NewContributionScreen> {
                   hint: const Text('Elige una categoría'),
                   items: [for (final c in placeCategories) DropdownMenuItem(value: c, child: Text(c))],
                   onChanged: (v) => setState(() => _category = v),
-                  validator: (v) => v == null ? 'Elige una categoría' : null,
+                  validator: (v) => v == null ? tr('Elige una categoría') : null,
                 ),
                 const SizedBox(height: 12),
                 const _FieldLabel('Descripción', optional: true),
                 TextFormField(
                   controller: _notes,
-                  decoration: const InputDecoration(hintText: 'Tienda de alimentos y artículos básicos.'),
+                  decoration: InputDecoration(hintText: trn('Tienda de alimentos y artículos básicos.')),
                   maxLines: 2,
                 ),
                 const SizedBox(height: 12),
                 const _FieldLabel('Referencia de ubicación', optional: true),
                 TextFormField(
                   controller: _reference,
-                  decoration: const InputDecoration(hintText: 'Ej.: frente a la estación de Delmas 33'),
+                  decoration: InputDecoration(hintText: trn('Ej.: frente a la estación de Delmas 33')),
                 ),
               ]),
             ),

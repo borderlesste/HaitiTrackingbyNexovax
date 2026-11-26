@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 
 import '../features/notifications/notifications_screen.dart';
 import 'theme.dart';
@@ -57,13 +58,13 @@ class HtAppBar extends StatelessWidget implements PreferredSizeWidget {
     if (canPop) {
       leading = IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
-        tooltip: 'Volver',
+        tooltip: trn('Volver'),
         onPressed: () => Navigator.of(context).maybePop(),
       );
     } else if (onMenu != null) {
       leading = IconButton(
         icon: const Icon(Icons.menu, color: Colors.white, size: 30),
-        tooltip: 'Menú',
+        tooltip: trn('Menú'),
         onPressed: onMenu,
       );
     }
@@ -85,7 +86,7 @@ class HtAppBar extends StatelessWidget implements PreferredSizeWidget {
                 label: Text(n > 9 ? '9+' : '$n'),
                 child: const Icon(Icons.notifications, color: Colors.white, size: 28),
               ),
-              tooltip: 'Notificaciones',
+              tooltip: trn('Notificaciones'),
               onPressed: onBell ?? () => showNotificationsSheet(context),
             ),
           )
@@ -447,12 +448,17 @@ String formatHaitiPhone(String? phone) {
   return '+509 ${d.substring(0, 2)} ${d.substring(2, 4)} ${d.substring(4, 6)} ${d.substring(6)}';
 }
 
-const _meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const _meses = {
+  'es': ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
+  'fr': ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'],
+  'ht': ['jan', 'fev', 'mas', 'avr', 'me', 'jen', 'jiy', 'out', 'sep', 'okt', 'nov', 'des'],
+  'en': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+};
 
 /// "19 nov 2026" (sin depender de los datos de idioma de intl).
 String fechaCorta(DateTime d) {
   final l = d.toLocal();
-  return '${l.day} ${_meses[l.month - 1]} ${l.year}';
+  return '${l.day} ${(_meses[Lang.current.value] ?? _meses['es']!)[l.month - 1]} ${l.year}';
 }
 
 /// "19 nov 2026, 10:24".

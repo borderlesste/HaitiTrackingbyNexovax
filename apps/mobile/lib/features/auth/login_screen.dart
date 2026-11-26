@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/account.dart';
@@ -97,9 +98,9 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 22),
             TextFormField(
               controller: _id,
-              decoration: const InputDecoration(
-                labelText: 'Teléfono o correo',
-                hintText: '37 12 34 56',
+              decoration: InputDecoration(
+                labelText: trn('Teléfono o correo'),
+                hintText: trn('37 12 34 56'),
                 prefixIcon: Icon(Icons.person_outline),
               ),
               keyboardType: TextInputType.emailAddress,
@@ -108,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
               validator: (v) {
                 final s = (v ?? '').trim();
                 if (s.contains('@')) return null;
-                return normalizeHaitiPhone(s) == null ? 'Escribe tu teléfono (8 dígitos) o tu correo' : null;
+                return normalizeHaitiPhone(s) == null ? tr('Escribe tu teléfono (8 dígitos) o tu correo') : null;
               },
             ),
             const SizedBox(height: 12),
@@ -116,14 +117,14 @@ class _LoginScreenState extends State<LoginScreen> {
               controller: _password,
               obscureText: _obscure,
               decoration: InputDecoration(
-                labelText: 'Contraseña',
+                labelText: trn('Contraseña'),
                 prefixIcon: const Icon(Icons.lock_outline),
                 suffixIcon: IconButton(
                   icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                   onPressed: () => setState(() => _obscure = !_obscure),
                 ),
               ),
-              validator: (v) => (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
+              validator: (v) => (v == null || v.length < 8) ? tr('Mínimo 8 caracteres') : null,
             ),
             Align(
               alignment: Alignment.centerRight,

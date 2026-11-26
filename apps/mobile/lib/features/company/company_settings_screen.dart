@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/account.dart';
@@ -44,13 +45,13 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const Text('Datos de contacto', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 12),
-            TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Teléfono', prefixText: '+509 ')),
+            TextField(controller: phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: trn('Teléfono'), prefixText: trn('+509 '))),
             const SizedBox(height: 10),
-            TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Correo')),
+            TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: trn('Correo'))),
             const SizedBox(height: 10),
-            TextField(controller: address, decoration: const InputDecoration(labelText: 'Dirección')),
+            TextField(controller: address, decoration: InputDecoration(labelText: trn('Dirección'))),
             const SizedBox(height: 10),
-            TextField(controller: web, keyboardType: TextInputType.url, decoration: const InputDecoration(labelText: 'Sitio web')),
+            TextField(controller: web, keyboardType: TextInputType.url, decoration: InputDecoration(labelText: trn('Sitio web'))),
             const SizedBox(height: 16),
             FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
           ]),
@@ -77,7 +78,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           const Text('La persona debe tener ya una cuenta en Haiti Tracking.'),
           const SizedBox(height: 12),
-          TextField(controller: c, decoration: const InputDecoration(labelText: 'Teléfono o correo')),
+          TextField(controller: c, decoration: InputDecoration(labelText: trn('Teléfono o correo'))),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
@@ -185,6 +186,10 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           child: Column(children: [
             SettingRow(icon: Icons.verified_user_outlined, title: 'Verificación empresarial', subtitle: 'Documentos y estado', onTap: widget.onOpenVerification),
             SettingRow(icon: Icons.workspace_premium_outlined, title: 'Planes y facturación', onTap: widget.onOpenBilling),
+            SettingRow(icon: Icons.language, title: 'Idioma de la aplicación', subtitle: languageNames[Lang.current.value], onTap: () async {
+              await chooseLanguage(context);
+              if (mounted) setState(() {});
+            }),
             SettingRow(icon: Icons.support_agent, title: 'Ayuda y soporte', onTap: () => showSupportSheet(context, audience: 'Empresa ${o['name']}', category: 'COMPANY')),
             SettingRow(icon: Icons.swap_horiz, title: 'Cambiar de perfil', subtitle: 'Colaborador, Empresa o Desarrollador', onTap: () => showProfileSwitcher(context)),
             SettingRow(icon: Icons.logout, title: 'Cerrar sesión', color: HtColors.red, onTap: () => Supabase.instance.client.auth.signOut(), last: true),

@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 
 import '../../core/money.dart';
 import '../../core/theme.dart';
@@ -239,7 +240,7 @@ class _SavedTile extends StatelessWidget {
             ),
             Text(money(m.totalCents), style: const TextStyle(color: HtColors.green, fontWeight: FontWeight.w800)),
             IconButton(
-              tooltip: 'Quitar de guardadas',
+              tooltip: trn('Quitar de guardadas'),
               icon: const Icon(Icons.bookmark_remove_outlined),
               onPressed: () => SavedMissions.toggle(m.id),
             ),

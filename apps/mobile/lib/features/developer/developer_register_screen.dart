@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/panel.dart';
@@ -109,22 +110,22 @@ class _DeveloperRegisterScreenState extends State<DeveloperRegisterScreen> {
           ),
           const FieldLabel('Nombre completo', required: true),
           TextFormField(controller: _name, decoration: const InputDecoration(prefixIcon: Icon(Icons.person_outline)),
-              validator: (v) => (v ?? '').trim().length < 2 ? 'Obligatorio' : null),
+              validator: (v) => (v ?? '').trim().length < 2 ? tr('Obligatorio') : null),
           if (_kind == 'Empresa') ...[
             const FieldLabel('Empresa u organización', required: true),
             TextFormField(controller: _company, decoration: const InputDecoration(prefixIcon: Icon(Icons.business_outlined)),
-                validator: (v) => _kind == 'Empresa' && (v ?? '').trim().length < 2 ? 'Obligatorio' : null),
+                validator: (v) => _kind == 'Empresa' && (v ?? '').trim().length < 2 ? tr('Obligatorio') : null),
           ],
           const FieldLabel('País'),
           TextFormField(controller: _country, decoration: const InputDecoration(prefixIcon: Icon(Icons.public))),
           const FieldLabel('Sitio web o repositorio'),
-          TextFormField(controller: _website, keyboardType: TextInputType.url, decoration: const InputDecoration(prefixIcon: Icon(Icons.link), hintText: 'Opcional')),
+          TextFormField(controller: _website, keyboardType: TextInputType.url, decoration: InputDecoration(prefixIcon: Icon(Icons.link), hintText: trn('Opcional'))),
           const FieldLabel('¿Para qué usarás la API?', required: true),
           TextFormField(
             controller: _use,
             maxLines: 3,
-            decoration: const InputDecoration(hintText: 'Ej.: mostrar farmacias cercanas en mi app de salud'),
-            validator: (v) => (v ?? '').trim().length < 5 ? 'Describe el uso previsto' : null,
+            decoration: InputDecoration(hintText: trn('Ej.: mostrar farmacias cercanas en mi app de salud')),
+            validator: (v) => (v ?? '').trim().length < 5 ? tr('Describe el uso previsto') : null,
           ),
           const SizedBox(height: 12),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

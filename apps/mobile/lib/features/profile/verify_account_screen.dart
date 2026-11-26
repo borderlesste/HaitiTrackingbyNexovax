@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/account.dart';
@@ -117,7 +118,7 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
               TextField(
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Tu correo', prefixIcon: Icon(Icons.alternate_email)),
+                decoration: InputDecoration(labelText: trn('Tu correo'), prefixIcon: Icon(Icons.alternate_email)),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),

@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/panel.dart';
@@ -142,13 +143,13 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
           children: [
             ScreenTitle(editing ? 'Editar proyecto' : 'Nuevo proyecto', icon: Icons.create_new_folder_outlined),
             const FieldLabel('Nombre de la aplicación', required: true),
-            TextFormField(controller: _name, validator: (v) => (v ?? '').trim().length < 2 ? 'Obligatorio' : null),
+            TextFormField(controller: _name, validator: (v) => (v ?? '').trim().length < 2 ? tr('Obligatorio') : null),
             const FieldLabel('Uso previsto', required: true),
             TextFormField(
               controller: _use,
               maxLines: 2,
-              decoration: const InputDecoration(hintText: 'Ej.: buscar comercios cercanos en mi app de entregas'),
-              validator: (v) => (v ?? '').trim().length < 5 ? 'Describe el uso' : null,
+              decoration: InputDecoration(hintText: trn('Ej.: buscar comercios cercanos en mi app de entregas')),
+              validator: (v) => (v ?? '').trim().length < 5 ? tr('Describe el uso') : null,
             ),
             if (!editing) ...[
               const FieldLabel('Entorno', required: true),

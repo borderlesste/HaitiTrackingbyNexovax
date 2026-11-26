@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -155,7 +156,7 @@ class _MapScreenState extends State<MapScreen> {
               controller: _search,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
-                hintText: 'Buscar misiones o lugares',
+                hintText: trn('Buscar misiones o lugares'),
                 prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
@@ -186,7 +187,7 @@ class _MapScreenState extends State<MapScreen> {
               IconButton.outlined(
                 onPressed: _locate,
                 icon: const Icon(Icons.my_location, color: HtColors.blue),
-                tooltip: 'Mi ubicación',
+                tooltip: trn('Mi ubicación'),
               ),
             ]),
           ]),

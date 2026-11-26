@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -128,7 +129,7 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
   Widget build(BuildContext context) {
     final sent = _sentTo != null;
     InputDecoration pass(String label) => InputDecoration(
-          labelText: label,
+          labelText: trn(label),
           prefixIcon: const Icon(Icons.lock_outline),
           suffixIcon: IconButton(
             icon: Icon(_show ? Icons.visibility_off : Icons.visibility),
@@ -167,14 +168,14 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                     ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)]
                     : null,
                 decoration: InputDecoration(
-                  labelText: _byPhone ? 'Teléfono de tu cuenta' : 'Correo de tu cuenta',
-                  hintText: _byPhone ? '37123456' : 'nombre@correo.com',
-                  prefixText: _byPhone ? '+509 ' : null,
+                  labelText: trn(_byPhone ? 'Teléfono de tu cuenta' : 'Correo de tu cuenta'),
+                  hintText: trn(_byPhone ? '37123456' : 'nombre@correo.com'),
+                  prefixText: trn(_byPhone ? '+509 ' : null),
                   prefixIcon: Icon(_byPhone ? Icons.phone_outlined : Icons.mail_outline),
                 ),
                 validator: (v) => _byPhone
-                    ? (normalizeHaitiPhone(v ?? '') == null ? 'Escribe los 8 dígitos de tu teléfono' : null)
-                    : ((v ?? '').contains('@') ? null : 'Escribe un correo válido'),
+                    ? (normalizeHaitiPhone(v ?? '') == null ? tr('Escribe los 8 dígitos de tu teléfono') : null)
+                    : ((v ?? '').contains('@') ? null : tr('Escribe un correo válido')),
               ),
               const SizedBox(height: 12),
               InfoBanner(_byPhone
@@ -193,22 +194,22 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
                 style: const TextStyle(fontSize: 22, letterSpacing: 8, fontWeight: FontWeight.w700),
                 textAlign: TextAlign.center,
-                decoration: const InputDecoration(labelText: 'Código SMS', hintText: '••••••'),
-                validator: (v) => (v ?? '').length != 6 ? 'El código tiene 6 dígitos' : null,
+                decoration: InputDecoration(labelText: trn('Código SMS'), hintText: trn('••••••')),
+                validator: (v) => (v ?? '').length != 6 ? tr('El código tiene 6 dígitos') : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _password,
                 obscureText: !_show,
                 decoration: pass('Nueva contraseña'),
-                validator: (v) => (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
+                validator: (v) => (v == null || v.length < 8) ? tr('Mínimo 8 caracteres') : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _repeat,
                 obscureText: !_show,
                 decoration: pass('Repite la contraseña'),
-                validator: (v) => v != _password.text ? 'Las contraseñas no coinciden' : null,
+                validator: (v) => v != _password.text ? tr('Las contraseñas no coinciden') : null,
               ),
               Align(
                 alignment: Alignment.centerRight,

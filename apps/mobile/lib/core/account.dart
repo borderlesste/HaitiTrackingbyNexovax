@@ -80,10 +80,10 @@ const collaboratorTypes = [
 ];
 
 const languageNames = {
-  'ht': 'Criollo haitiano / Kreyòl',
-  'fr': 'Francés / Français',
+  'ht': 'Kreyòl ayisyen',
+  'fr': 'Français',
   'es': 'Español',
-  'en': 'Inglés / English',
+  'en': 'English',
 };
 
 /// "37123456" o "+509 37 12 34 56" → "+50937123456". Devuelve null si no es un número haitiano de 8 dígitos.

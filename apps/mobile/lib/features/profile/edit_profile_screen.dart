@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -24,7 +25,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late String? _department = haitiDepartments.contains(widget.profile.department)
       ? widget.profile.department
       : communeDepartment[widget.profile.commune];
-  late String _language = widget.profile.language;
+  late String _language = Lang.current.value;
   late DateTime? _birth = widget.profile.birthDate == null ? null : DateTime.tryParse(widget.profile.birthDate!);
   bool _busy = false;
 
@@ -54,6 +55,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       });
       await Supabase.instance.client.auth
           .updateUser(UserAttributes(data: {'full_name': full, 'first_name': first, 'last_name': last}));
+      await Lang.set(_language);
       if (mounted) Navigator.pop(context, true);
     } catch (_) {
       if (mounted) {
@@ -78,14 +80,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             TextFormField(
               controller: _first,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Nombre(s)', prefixIcon: Icon(Icons.person_outline)),
-              validator: (v) => (v == null || v.trim().length < 2) ? 'Escribe tu nombre' : null,
+              decoration: InputDecoration(labelText: trn('Nombre(s)'), prefixIcon: Icon(Icons.person_outline)),
+              validator: (v) => (v == null || v.trim().length < 2) ? tr('Escribe tu nombre') : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _last,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Apellido(s)', prefixIcon: Icon(Icons.person_outline)),
+              decoration: InputDecoration(labelText: trn('Apellido(s)'), prefixIcon: Icon(Icons.person_outline)),
             ),
             const SizedBox(height: 12),
             InkWell(
@@ -100,7 +102,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 if (d != null) setState(() => _birth = d);
               },
               child: InputDecorator(
-                decoration: const InputDecoration(labelText: 'Fecha de nacimiento', prefixIcon: Icon(Icons.calendar_month_outlined)),
+                decoration: InputDecoration(labelText: trn('Fecha de nacimiento'), prefixIcon: Icon(Icons.calendar_month_outlined)),
                 child: Text(_birth == null
                     ? 'Sin indicar'
                     : '${DateFormat('dd / MM / yyyy').format(_birth!)}  ·  ${ageFrom(_birth!)} años'),
@@ -110,7 +112,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             DropdownButtonFormField<String>(
               initialValue: _commune,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Comuna / Ciudad', prefixIcon: Icon(Icons.location_on_outlined)),
+              decoration: InputDecoration(labelText: trn('Comuna / Ciudad'), prefixIcon: Icon(Icons.location_on_outlined)),
               items: [for (final c in haitiCommunes) DropdownMenuItem(value: c, child: Text(c))],
               onChanged: (v) => setState(() {
                 _commune = v;
@@ -122,7 +124,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               key: ValueKey(_department),
               initialValue: _department,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Departamento', prefixIcon: Icon(Icons.map_outlined)),
+              decoration: InputDecoration(labelText: trn('Departamento'), prefixIcon: Icon(Icons.map_outlined)),
               items: [for (final d in haitiDepartments) DropdownMenuItem(value: d, child: Text(d))],
               onChanged: (v) => setState(() => _department = v),
             ),
@@ -130,7 +132,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             DropdownButtonFormField<String>(
               initialValue: _language,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Idioma preferido', prefixIcon: Icon(Icons.language)),
+              decoration: InputDecoration(labelText: trn('Idioma preferido'), prefixIcon: Icon(Icons.language)),
               items: [for (final e in languageNames.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
               onChanged: (v) => setState(() => _language = v ?? 'ht'),
             ),
@@ -138,7 +140,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             DropdownButtonFormField<String>(
               initialValue: _type,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: '¿Cómo te identificas?', prefixIcon: Icon(Icons.groups_outlined)),
+              decoration: InputDecoration(labelText: trn('¿Cómo te identificas?'), prefixIcon: Icon(Icons.groups_outlined)),
               items: [for (final c in collaboratorTypes) DropdownMenuItem(value: c, child: Text(c))],
               onChanged: (v) => setState(() => _type = v),
             ),

@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme.dart';
@@ -285,8 +286,8 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
             TextFormField(
               controller: _subject,
               maxLength: 150,
-              decoration: const InputDecoration(labelText: 'Asunto'),
-              validator: (v) => (v == null || v.trim().length < 3) ? 'Escribe un asunto' : null,
+              decoration: InputDecoration(labelText: trn('Asunto')),
+              validator: (v) => (v == null || v.trim().length < 3) ? tr('Escribe un asunto') : null,
             ),
             const SizedBox(height: 8),
             TextFormField(
@@ -294,10 +295,10 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
               maxLines: 6,
               maxLength: 2000,
               decoration: InputDecoration(
-                labelText: deletion ? 'Motivo (opcional, mínimo 5 letras)' : 'Mensaje',
+                labelText: trn(deletion ? 'Motivo (opcional, mínimo 5 letras)' : 'Mensaje'),
                 alignLabelWithHint: true,
               ),
-              validator: (v) => (v == null || v.trim().length < 5) ? 'Escribe al menos 5 letras' : null,
+              validator: (v) => (v == null || v.trim().length < 5) ? tr('Escribe al menos 5 letras') : null,
             ),
             if (deletion) ...[
               const SizedBox(height: 8),

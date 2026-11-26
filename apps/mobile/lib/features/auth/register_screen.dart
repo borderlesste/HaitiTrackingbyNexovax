@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -162,16 +163,16 @@ class _BasicDataStepState extends State<_BasicDataStep> {
           TextFormField(
             controller: _first,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(prefixIcon: Icon(Icons.person_outline), hintText: 'Jean'),
-            validator: (v) => (v == null || v.trim().length < 2) ? 'Escribe tu nombre' : null,
+            decoration: InputDecoration(prefixIcon: Icon(Icons.person_outline), hintText: trn('Jean')),
+            validator: (v) => (v == null || v.trim().length < 2) ? tr('Escribe tu nombre') : null,
           ),
           const SizedBox(height: 14),
           const _Label('Apellido(s)'),
           TextFormField(
             controller: _last,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(prefixIcon: Icon(Icons.person_outline), hintText: 'Pierre'),
-            validator: (v) => (v == null || v.trim().length < 2) ? 'Escribe tu apellido' : null,
+            decoration: InputDecoration(prefixIcon: Icon(Icons.person_outline), hintText: trn('Pierre')),
+            validator: (v) => (v == null || v.trim().length < 2) ? tr('Escribe tu apellido') : null,
           ),
           const SizedBox(height: 14),
           _Label(collaborator ? 'Número de teléfono (MonCash)' : 'Número de teléfono'),
@@ -180,13 +181,13 @@ class _BasicDataStepState extends State<_BasicDataStep> {
             keyboardType: TextInputType.phone,
             autofillHints: const [AutofillHints.telephoneNumber],
             inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               prefixIcon: Icon(Icons.phone_outlined),
-              prefixText: '+509 ',
-              hintText: '37123456',
-              counterText: '',
+              prefixText: trn('+509 '),
+              hintText: trn('37123456'),
+              counterText: trn(''),
             ),
-            validator: (v) => normalizeHaitiPhone(v ?? '') == null ? 'Número haitiano de 8 dígitos' : null,
+            validator: (v) => normalizeHaitiPhone(v ?? '') == null ? tr('Número haitiano de 8 dígitos') : null,
           ),
           const SizedBox(height: 14),
           const _Label('Contraseña'),
@@ -195,13 +196,13 @@ class _BasicDataStepState extends State<_BasicDataStep> {
             obscureText: _obscure,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.lock_outline),
-              hintText: 'Mínimo 8 caracteres',
+              hintText: trn('Mínimo 8 caracteres'),
               suffixIcon: IconButton(
                 icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
-            validator: (v) => (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
+            validator: (v) => (v == null || v.length < 8) ? tr('Mínimo 8 caracteres') : null,
           ),
           const SizedBox(height: 16),
           InfoBanner(collaborator
@@ -356,7 +357,7 @@ class _ProfileStepState extends State<_ProfileStep> {
   DateTime? _birth;
   String? _commune;
   String? _department;
-  String _language = 'ht';
+  String _language = Lang.current.value;
   String? _type = collaboratorTypes.first;
   bool _terms = false;
   bool _busy = false;
@@ -369,7 +370,7 @@ class _ProfileStepState extends State<_ProfileStep> {
       initialDate: _birth ?? DateTime(now.year - 25),
       firstDate: DateTime(now.year - 100),
       lastDate: DateTime(now.year - 18, now.month, now.day),
-      helpText: 'Fecha de nacimiento',
+      helpText: trn('Fecha de nacimiento'),
     );
     if (picked != null) setState(() => _birth = picked);
   }
@@ -463,7 +464,7 @@ class _ProfileStepState extends State<_ProfileStep> {
               _commune = v;
               _department = communeDepartment[v] ?? _department;
             }),
-            validator: (v) => v == null ? 'Elige tu comuna' : null,
+            validator: (v) => v == null ? tr('Elige tu comuna') : null,
           ),
           const SizedBox(height: 14),
           const _Label('Departamento'),
@@ -475,7 +476,7 @@ class _ProfileStepState extends State<_ProfileStep> {
             hint: const Text('Elige tu departamento'),
             items: [for (final d in haitiDepartments) DropdownMenuItem(value: d, child: Text(d))],
             onChanged: (v) => setState(() => _department = v),
-            validator: (v) => v == null ? 'Elige tu departamento' : null,
+            validator: (v) => v == null ? tr('Elige tu departamento') : null,
           ),
           const SizedBox(height: 14),
           const _Label('Idioma preferido'),
@@ -484,7 +485,10 @@ class _ProfileStepState extends State<_ProfileStep> {
             isExpanded: true,
             decoration: const InputDecoration(prefixIcon: Icon(Icons.language)),
             items: [for (final e in languageNames.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
-            onChanged: (v) => setState(() => _language = v ?? 'ht'),
+            onChanged: (v) {
+              setState(() => _language = v ?? 'ht');
+              Lang.set(_language);
+            },
           ),
           const SizedBox(height: 14),
           if (widget.profile == AppProfile.collaborator) ...[

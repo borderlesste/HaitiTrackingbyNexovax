@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/money.dart';
@@ -208,7 +209,7 @@ class _BalanceCard extends StatelessWidget {
               const Text('Saldo disponible', style: TextStyle(color: Colors.white, fontSize: 16)),
               const SizedBox(width: 6),
               Tooltip(
-                message: 'Recompensas aprobadas que ya puedes retirar.',
+                message: trn('Recompensas aprobadas que ya puedes retirar.'),
                 triggerMode: TooltipTriggerMode.tap,
                 child: Icon(Icons.info_outline, color: Colors.white.withValues(alpha: .9), size: 18),
               ),

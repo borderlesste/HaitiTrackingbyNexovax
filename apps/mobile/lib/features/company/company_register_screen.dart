@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/account.dart';
@@ -91,7 +92,7 @@ class _CompanyRegisterScreenState extends State<CompanyRegisterScreen> {
         onChanged: (v) => setState(() => _sector = v ?? 'Otro'),
       ),
       const FieldLabel('Número de registro / NIF'),
-      TextFormField(controller: _legal, decoration: const InputDecoration(prefixIcon: Icon(Icons.badge_outlined), hintText: 'Opcional')),
+      TextFormField(controller: _legal, decoration: InputDecoration(prefixIcon: Icon(Icons.badge_outlined), hintText: trn('Opcional'))),
       const FieldLabel('Comuna', required: true),
       DropdownButtonFormField<String>(
         initialValue: _commune,
@@ -100,12 +101,12 @@ class _CompanyRegisterScreenState extends State<CompanyRegisterScreen> {
         hint: const Text('Elige la comuna'),
         items: [for (final c in haitiCommunes) DropdownMenuItem(value: c, child: Text(c))],
         onChanged: (v) => setState(() => _commune = v),
-        validator: (v) => v == null ? 'Elige la comuna' : null,
+        validator: (v) => v == null ? tr('Elige la comuna') : null,
       ),
       const FieldLabel('Dirección'),
       TextFormField(controller: _address, decoration: const InputDecoration(prefixIcon: Icon(Icons.home_work_outlined))),
       const FieldLabel('Sitio web'),
-      TextFormField(controller: _website, keyboardType: TextInputType.url, decoration: const InputDecoration(prefixIcon: Icon(Icons.language), hintText: 'Opcional')),
+      TextFormField(controller: _website, keyboardType: TextInputType.url, decoration: InputDecoration(prefixIcon: Icon(Icons.language), hintText: trn('Opcional'))),
     ];
     final repFields = <Widget>[
       const FieldLabel('Nombre del representante legal', required: true),
@@ -114,15 +115,15 @@ class _CompanyRegisterScreenState extends State<CompanyRegisterScreen> {
       TextFormField(
         controller: _phone,
         keyboardType: TextInputType.phone,
-        decoration: const InputDecoration(prefixIcon: Icon(Icons.phone_outlined), prefixText: '+509 '),
-        validator: (v) => normalizeHaitiPhone(v ?? '') == null ? 'Número de 8 dígitos' : null,
+        decoration: InputDecoration(prefixIcon: Icon(Icons.phone_outlined), prefixText: trn('+509 ')),
+        validator: (v) => normalizeHaitiPhone(v ?? '') == null ? tr('Número de 8 dígitos') : null,
       ),
       const FieldLabel('Correo de contacto'),
       TextFormField(
         controller: _email,
         keyboardType: TextInputType.emailAddress,
         decoration: const InputDecoration(prefixIcon: Icon(Icons.mail_outline)),
-        validator: (v) => (v ?? '').trim().isEmpty || RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v!.trim()) ? null : 'Correo no válido',
+        validator: (v) => (v ?? '').trim().isEmpty || RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v!.trim()) ? null : tr('Correo no válido'),
       ),
       const SizedBox(height: 16),
       const InfoBanner('Nuestro equipo verificará tu empresa antes de que puedas registrar establecimientos o solicitar misiones. '

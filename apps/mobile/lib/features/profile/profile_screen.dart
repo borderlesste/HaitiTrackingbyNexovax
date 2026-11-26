@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/account.dart';
+import '../../core/panel.dart' show chooseLanguage;
 import '../../core/profile_context.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
@@ -77,31 +79,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _chooseLanguage() async {
-    final current = _profile?.language ?? 'ht';
-    final chosen = await showModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Idioma de la aplicación', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          ),
-          for (final e in languageNames.entries)
-            ListTile(
-              title: Text(e.value),
-              trailing: e.key == current ? const Icon(Icons.check_circle, color: HtColors.green) : null,
-              onTap: () => Navigator.pop(ctx, e.key),
-            ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Text('Por ahora la app se muestra en español; usaremos tu preferencia en los mensajes y en próximas versiones.',
-                style: TextStyle(fontSize: 12, color: HtColors.muted)),
-          ),
-        ]),
-      ),
-    );
-    if (chosen == null || chosen == current) return;
-    await updateMyProfile({'preferred_language': chosen});
+    await chooseLanguage(context);
     _load();
   }
 
@@ -196,7 +174,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _SettingTile(
                 leading: const Icon(Icons.language, color: HtColors.blue),
                 title: 'Idioma de la aplicación',
-                subtitle: languageNames[p?.language ?? 'ht'],
+                subtitle: languageNames[Lang.current.value],
                 onTap: _chooseLanguage,
               ),
               _SettingTile(

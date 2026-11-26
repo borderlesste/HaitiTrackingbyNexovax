@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -156,7 +157,7 @@ class _ApiTestScreenState extends State<ApiTestScreen> {
             const Spacer(),
             if (_ms != null) Text('$_ms ms', style: const TextStyle(color: HtColors.muted)),
             IconButton(
-              tooltip: 'Copiar',
+              tooltip: trn('Copiar'),
               icon: const Icon(Icons.copy, size: 20),
               onPressed: () => Clipboard.setData(ClipboardData(text: _result!)),
             ),

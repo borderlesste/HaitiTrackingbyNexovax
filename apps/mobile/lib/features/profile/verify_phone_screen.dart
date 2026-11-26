@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -145,11 +146,11 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
             enabled: _sentTo == null,
             keyboardType: TextInputType.phone,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
-            decoration: const InputDecoration(
-              labelText: 'Número MonCash',
+            decoration: InputDecoration(
+              labelText: trn('Número MonCash'),
               prefixIcon: Icon(Icons.phone_outlined),
-              prefixText: '+509 ',
-              hintText: '37123456',
+              prefixText: trn('+509 '),
+              hintText: trn('37123456'),
             ),
           ),
           if (_sentTo == null && _accountPhone != null) ...[

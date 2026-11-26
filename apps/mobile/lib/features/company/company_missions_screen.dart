@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -318,8 +319,8 @@ class _MissionRequestScreenState extends State<MissionRequestScreen> {
             const FieldLabel('Objetivo', required: true),
             TextFormField(
               controller: _title,
-              decoration: const InputDecoration(hintText: 'Ej.: Registrar farmacias de Delmas'),
-              validator: (v) => (v ?? '').trim().length < 4 ? 'Obligatorio' : null,
+              decoration: InputDecoration(hintText: trn('Ej.: Registrar farmacias de Delmas')),
+              validator: (v) => (v ?? '').trim().length < 4 ? tr('Obligatorio') : null,
             ),
             const FieldLabel('Categoría de lugares'),
             DropdownButtonFormField<String>(
@@ -368,7 +369,7 @@ class _MissionRequestScreenState extends State<MissionRequestScreen> {
                   TextFormField(
                     controller: _target,
                     keyboardType: TextInputType.number,
-                    validator: (v) => (int.tryParse(v ?? '') ?? 0) < 1 ? 'Mínimo 1' : null,
+                    validator: (v) => (int.tryParse(v ?? '') ?? 0) < 1 ? tr('Mínimo 1') : null,
                   ),
                 ]),
               ),
@@ -379,8 +380,8 @@ class _MissionRequestScreenState extends State<MissionRequestScreen> {
                   TextFormField(
                     controller: _budget,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(prefixText: '\$ '),
-                    validator: (v) => RegExp(r'^\d+(\.\d{1,2})?$').hasMatch((v ?? '').trim()) ? null : 'Ej.: 10.00',
+                    decoration: InputDecoration(prefixText: trn('\$ ')),
+                    validator: (v) => RegExp(r'^\d+(\.\d{1,2})?$').hasMatch((v ?? '').trim()) ? null : tr('Ej.: 10.00'),
                   ),
                 ]),
               ),
@@ -399,7 +400,7 @@ class _MissionRequestScreenState extends State<MissionRequestScreen> {
               ),
             ),
             const FieldLabel('Requisitos y detalles'),
-            TextFormField(controller: _desc, maxLines: 3, decoration: const InputDecoration(hintText: 'Ej.: foto del letrero, horario de atención…')),
+            TextFormField(controller: _desc, maxLines: 3, decoration: InputDecoration(hintText: trn('Ej.: foto del letrero, horario de atención…'))),
             const SizedBox(height: 14),
             const InfoBanner('El equipo revisará la zona, el precio y la seguridad antes de publicarla. '
                 'Te confirmaremos la recompensa por lugar y el presupuesto final.'),

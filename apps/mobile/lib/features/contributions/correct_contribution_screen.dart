@@ -1,6 +1,7 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -185,7 +186,7 @@ class _CorrectContributionScreenState extends State<CorrectContributionScreen> {
             TextFormField(
               controller: _name,
               textCapitalization: TextCapitalization.words,
-              validator: (v) => (v == null || v.trim().length < 2) ? 'Escribe el nombre' : null,
+              validator: (v) => (v == null || v.trim().length < 2) ? tr('Escribe el nombre') : null,
             ),
             const SizedBox(height: 12),
             const _Label('Categoría'),
@@ -196,7 +197,7 @@ class _CorrectContributionScreenState extends State<CorrectContributionScreen> {
               hint: const Text('Elige una categoría'),
               items: [for (final x in placeCategories) DropdownMenuItem(value: x, child: Text(x))],
               onChanged: (v) => setState(() => _category = v),
-              validator: (v) => v == null ? 'Elige una categoría' : null,
+              validator: (v) => v == null ? tr('Elige una categoría') : null,
             ),
             const SizedBox(height: 12),
             const _Label('Referencia de ubicación', optional: true),

@@ -3,7 +3,9 @@ import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/guest.dart';
@@ -39,6 +41,7 @@ Future<void> main() async {
   if (supabaseUrl.isNotEmpty) {
     await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
   }
+  await Lang.load();
   await ProfileContext.load();
   await Guest.load();
   await SavedMissions.load();
@@ -50,11 +53,17 @@ class HaitiTrackingApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Haiti Tracking',
-      debugShowCheckedModeBanner: false,
-      theme: buildTheme(),
-      home: supabaseUrl.isEmpty ? const _MissingConfig() : const AuthGate(),
+    return ValueListenableBuilder<String>(
+      valueListenable: Lang.current,
+      builder: (context, lang, child) => MaterialApp(
+        title: 'Haiti Tracking',
+        debugShowCheckedModeBanner: false,
+        theme: buildTheme(),
+        locale: Lang.materialLocale,
+        supportedLocales: const [Locale('es'), Locale('fr'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: supabaseUrl.isEmpty ? const _MissingConfig() : const AuthGate(),
+      ),
     );
   }
 }

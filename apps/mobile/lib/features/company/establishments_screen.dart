@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/panel.dart';
@@ -223,14 +224,14 @@ class _ClaimPlaceScreenState extends State<ClaimPlaceScreen> {
           controller: _q,
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
-            hintText: 'Nombre o código (HT-NXV-…)',
+            hintText: trn('Nombre o código (HT-NXV-…)'),
             prefixIcon: const Icon(Icons.search),
             suffixIcon: IconButton(onPressed: _search, icon: const Icon(Icons.arrow_forward)),
           ),
           onSubmitted: (_) => _search(),
         ),
         const FieldLabel('Prueba de titularidad'),
-        TextField(controller: _evidence, decoration: const InputDecoration(hintText: 'Ej.: número de patente, cargo en la empresa')),
+        TextField(controller: _evidence, decoration: InputDecoration(hintText: trn('Ej.: número de patente, cargo en la empresa'))),
         const SizedBox(height: 14),
         if (_searching) const Center(child: CircularProgressIndicator()),
         if (!_searching && _searched && _results.isEmpty)

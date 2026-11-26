@@ -1,14 +1,14 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 
 import '../../core/guest.dart';
 import '../../core/theme.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
-/// Idiomas ofrecidos en la bienvenida. Por ahora solo se traduce esta pantalla.
+/// Idiomas de la app (el elegido aquí se aplica a todas las pantallas).
 enum WelcomeLang { es, fr, ht, en }
 
 class _WelcomeTexts {
@@ -67,8 +67,6 @@ const _texts = <WelcomeLang, _WelcomeTexts>{
   ),
 };
 
-const _langPrefKey = 'welcome_lang';
-
 /// Pantalla de bienvenida: logo, lema en carrusel, panorámica y accesos a registro o inicio de sesión.
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -81,12 +79,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final _pages = PageController();
   Timer? _autoplay;
   int _page = 0;
-  WelcomeLang _lang = WelcomeLang.es;
+  WelcomeLang get _lang => WelcomeLang.values.where((l) => l.name == Lang.current.value).firstOrNull ?? WelcomeLang.es;
 
   @override
   void initState() {
     super.initState();
-    _loadLang();
     _autoplay = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!_pages.hasClients) return;
       final next = (_page + 1) % 3;
@@ -94,17 +91,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     });
   }
 
-  Future<void> _loadLang() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_langPrefKey);
-    final lang = WelcomeLang.values.where((l) => l.name == saved).firstOrNull;
-    if (lang != null && mounted) setState(() => _lang = lang);
-  }
-
   Future<void> _setLang(WelcomeLang lang) async {
-    setState(() => _lang = lang);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_langPrefKey, lang.name);
+    await Lang.set(lang.name);
+    if (mounted) setState(() {});
   }
 
   @override
@@ -282,7 +271,7 @@ class _LanguagePill extends StatelessWidget {
     return PopupMenuButton<WelcomeLang>(
       initialValue: value,
       onSelected: onChanged,
-      tooltip: 'Idioma',
+      tooltip: trn('Idioma'),
       position: PopupMenuPosition.under,
       itemBuilder: (_) => [
         for (final l in WelcomeLang.values) PopupMenuItem(value: l, child: Text(_names[l]!)),

@@ -22,6 +22,6 @@ void main() {
     expect(find.text('Commencer'), findsOneWidget);
     expect(find.text('FR'), findsOneWidget);
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('welcome_lang'), 'fr');
+    expect(prefs.getString('app_lang'), 'fr');
   });
 }

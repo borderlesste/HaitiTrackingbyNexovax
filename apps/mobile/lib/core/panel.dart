@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'account.dart';
 import 'theme.dart';
 import 'ui.dart';
 
@@ -304,8 +306,8 @@ class _SupportFormState extends State<_SupportForm> {
             onSelected: (i) => setState(() => _kind = i),
           ),
           const SizedBox(height: 12),
-          TextField(controller: _subject, maxLength: 100, decoration: const InputDecoration(labelText: 'Asunto')),
-          TextField(controller: _message, maxLines: 4, maxLength: 2000, decoration: const InputDecoration(labelText: 'Describe tu consulta')),
+          TextField(controller: _subject, maxLength: 100, decoration: InputDecoration(labelText: trn('Asunto'))),
+          TextField(controller: _message, maxLines: 4, maxLength: 2000, decoration: InputDecoration(labelText: trn('Describe tu consulta'))),
           if (_error != null) Text(_error!, style: const TextStyle(color: HtColors.red)),
           const SizedBox(height: 8),
           FilledButton.icon(
@@ -317,4 +319,33 @@ class _SupportFormState extends State<_SupportForm> {
       ),
     );
   }
+}
+
+/// Elegir el idioma de la app: cambia todas las pantallas al instante y lo guarda en el perfil.
+Future<void> chooseLanguage(BuildContext context) async {
+  final current = Lang.current.value;
+  final chosen = await showModalBottomSheet<String>(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('Idioma de la aplicación', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        ),
+        for (final e in languageNames.entries)
+          ListTile(
+            title: Text(e.value),
+            trailing: e.key == current ? const Icon(Icons.check_circle, color: HtColors.green) : null,
+            onTap: () => Navigator.pop(ctx, e.key),
+          ),
+        const SizedBox(height: 12),
+      ]),
+    ),
+  );
+  if (chosen == null || chosen == current) return;
+  await Lang.set(chosen);
+  if (Supabase.instance.client.auth.currentUser == null) return;
+  try {
+    await updateMyProfile({'preferred_language': chosen});
+  } catch (_) {}
 }

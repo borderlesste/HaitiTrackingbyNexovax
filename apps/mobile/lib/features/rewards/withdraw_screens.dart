@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -120,7 +121,7 @@ class _WithdrawAmountScreenState extends State<WithdrawAmountScreen> {
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,3}([.,]\d{0,2})?'))],
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-              decoration: const InputDecoration(hintText: '10.00', prefixText: '\$ '),
+              decoration: InputDecoration(hintText: trn('10.00'), prefixText: trn('\$ ')),
               validator: _validate,
             ),
             const SizedBox(height: 4),

@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -208,7 +209,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     InputDecoration deco(String label) => InputDecoration(
-          labelText: label,
+          labelText: trn(label),
           prefixIcon: const Icon(Icons.lock_outline),
           suffixIcon: IconButton(
             icon: Icon(_show ? Icons.visibility_off : Icons.visibility),
@@ -228,7 +229,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               controller: _current,
               obscureText: !_show,
               decoration: deco('Contraseña actual'),
-              validator: (v) => (v == null || v.isEmpty) ? 'Escribe tu contraseña actual' : null,
+              validator: (v) => (v == null || v.isEmpty) ? tr('Escribe tu contraseña actual') : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -236,9 +237,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               obscureText: !_show,
               decoration: deco('Nueva contraseña'),
               validator: (v) => (v == null || v.length < 8)
-                  ? 'Mínimo 8 caracteres'
+                  ? tr('Mínimo 8 caracteres')
                   : v == _current.text
-                      ? 'Debe ser distinta de la actual'
+                      ? tr('Debe ser distinta de la actual')
                       : null,
             ),
             const SizedBox(height: 12),
@@ -246,7 +247,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               controller: _repeat,
               obscureText: !_show,
               decoration: deco('Repite la nueva contraseña'),
-              validator: (v) => v != _next.text ? 'Las contraseñas no coinciden' : null,
+              validator: (v) => v != _next.text ? tr('Las contraseñas no coinciden') : null,
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),

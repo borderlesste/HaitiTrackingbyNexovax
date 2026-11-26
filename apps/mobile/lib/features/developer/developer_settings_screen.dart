@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/account.dart' show languageNames;
 import '../../core/panel.dart';
 import '../../core/profile_context.dart';
 import '../../core/theme.dart';
@@ -49,13 +51,13 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const Text('Perfil de desarrollador', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 12),
-            TextField(controller: name, decoration: const InputDecoration(labelText: 'Nombre')),
+            TextField(controller: name, decoration: InputDecoration(labelText: trn('Nombre'))),
             const SizedBox(height: 10),
-            TextField(controller: company, decoration: const InputDecoration(labelText: 'Empresa (opcional)')),
+            TextField(controller: company, decoration: InputDecoration(labelText: trn('Empresa (opcional)'))),
             const SizedBox(height: 10),
-            TextField(controller: country, decoration: const InputDecoration(labelText: 'País')),
+            TextField(controller: country, decoration: InputDecoration(labelText: trn('País'))),
             const SizedBox(height: 10),
-            TextField(controller: web, decoration: const InputDecoration(labelText: 'Sitio web')),
+            TextField(controller: web, decoration: InputDecoration(labelText: trn('Sitio web'))),
             const SizedBox(height: 16),
             FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
           ]),
@@ -124,6 +126,10 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
         HtCard(
           padding: EdgeInsets.zero,
           child: Column(children: [
+            SettingRow(icon: Icons.language, title: 'Idioma de la aplicación', subtitle: languageNames[Lang.current.value], onTap: () async {
+              await chooseLanguage(context);
+              if (mounted) setState(() {});
+            }),
             SettingRow(icon: Icons.lock_reset, title: 'Cambiar contraseña', onTap: _resetPassword),
             SettingRow(icon: Icons.devices_other, title: 'Cerrar sesión en otros dispositivos', subtitle: 'Mantiene abierta solo esta sesión', onTap: _signOutOthers),
             SettingRow(icon: Icons.gavel_outlined, title: 'Condiciones de uso de la API', onTap: () => showApiTerms(context), last: true),

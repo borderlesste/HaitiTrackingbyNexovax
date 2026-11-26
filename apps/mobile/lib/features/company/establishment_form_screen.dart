@@ -1,6 +1,7 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -152,7 +153,7 @@ class _EstablishmentFormScreenState extends State<EstablishmentFormScreen> {
             const SizedBox(height: 8),
             const FieldLabel('Nombre del establecimiento', required: true),
             TextFormField(controller: _name, decoration: const InputDecoration(prefixIcon: Icon(Icons.storefront_outlined)),
-                validator: (v) => (v ?? '').trim().length < 2 ? 'Obligatorio' : null),
+                validator: (v) => (v ?? '').trim().length < 2 ? tr('Obligatorio') : null),
             const FieldLabel('Categoría', required: true),
             DropdownButtonFormField<String>(
               initialValue: _category,
@@ -161,10 +162,10 @@ class _EstablishmentFormScreenState extends State<EstablishmentFormScreen> {
               hint: const Text('Elige la categoría'),
               items: [for (final c in placeCategories) DropdownMenuItem(value: c, child: Text(c))],
               onChanged: (v) => setState(() => _category = v),
-              validator: (v) => v == null ? 'Elige la categoría' : null,
+              validator: (v) => v == null ? tr('Elige la categoría') : null,
             ),
             const FieldLabel('Dirección / referencia'),
-            TextFormField(controller: _address, decoration: const InputDecoration(prefixIcon: Icon(Icons.signpost_outlined), hintText: 'Ej.: Rue Delmas 33, frente al mercado')),
+            TextFormField(controller: _address, decoration: InputDecoration(prefixIcon: Icon(Icons.signpost_outlined), hintText: trn('Ej.: Rue Delmas 33, frente al mercado'))),
             const FieldLabel('Comuna', required: true),
             DropdownButtonFormField<String>(
               initialValue: _commune,
@@ -173,25 +174,25 @@ class _EstablishmentFormScreenState extends State<EstablishmentFormScreen> {
               hint: const Text('Elige la comuna'),
               items: [for (final c in haitiCommunes) DropdownMenuItem(value: c, child: Text(c))],
               onChanged: (v) => setState(() => _commune = v),
-              validator: (v) => v == null ? 'Elige la comuna' : null,
+              validator: (v) => v == null ? tr('Elige la comuna') : null,
             ),
             Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   const FieldLabel('Teléfono'),
-                  TextFormField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(prefixText: '+509 ')),
+                  TextFormField(controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(prefixText: trn('+509 '))),
                 ]),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   const FieldLabel('Horario'),
-                  TextFormField(controller: _hours, decoration: const InputDecoration(hintText: 'Lun–Sáb 8–18 h')),
+                  TextFormField(controller: _hours, decoration: InputDecoration(hintText: trn('Lun–Sáb 8–18 h'))),
                 ]),
               ),
             ]),
             const FieldLabel('Descripción'),
-            TextFormField(controller: _desc, maxLines: 2, decoration: const InputDecoration(hintText: 'Opcional')),
+            TextFormField(controller: _desc, maxLines: 2, decoration: InputDecoration(hintText: trn('Opcional'))),
             const FieldLabel('Ubicación (GPS)', required: true),
             const Text('Toca el mapa para marcar la entrada del local, o usa el GPS si estás allí.', style: TextStyle(color: HtColors.muted)),
             const SizedBox(height: 8),

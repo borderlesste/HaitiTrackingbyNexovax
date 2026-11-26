@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:haiti_tracking/core/i18n.dart';
 
 import '../../core/guest.dart';
 import '../../core/theme.dart';
@@ -83,7 +84,7 @@ class _MissionsListScreenState extends State<MissionsListScreen> {
                 onChanged: (_) => setState(() {}),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: 'Buscar por nombre, comuna o código',
+                  hintText: trn('Buscar por nombre, comuna o código'),
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _query.text.isEmpty
                       ? null
